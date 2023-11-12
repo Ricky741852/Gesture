@@ -18,6 +18,7 @@
 
 #include "Arduino.h"
 #include "ads.h"
+#include <bluefruit.h>
 #include <SparkFun_ADS1015_Arduino_Library.h>
 #include <Wire.h>
 
@@ -29,11 +30,28 @@ void deadzone_filter(float * sample);
 void signal_filter(float * sample);
 void parse_com_port(void);
 
+BLEUart bleuart; // uart over ble
 
+// Define hardware: LED and Button pins and states
+const int LED_PIN = 7;
+#define LED_OFF LOW
+#define LED_ON HIGH
+
+const int BUTTON_PIN = 13;
+#define BUTTON_ACTIVE LOW
+boolean adsState = false;
+
+const int F_AMOUNT = 5;
+
+union F_DataSplit  // Flex Sensor_Data Split
+{
+  int full;
+  byte byte_data;
+} HAND[F_AMOUNT];
 
 ADS1015 pinkySensor;
 ADS1015 indexSensor;
-float hand[4] = {0, 0, 0, 0};
+//int hand[4] = {0, 0, 0, 0};
 //Calibration Array
 uint16_t handCalibration[4][2] = {
 //{low, hi} switch these to reverse which end is 1 and which is 0  
@@ -46,31 +64,7 @@ uint16_t handCalibration[4][2] = {
 /* Receives new samples from the ADS library */
 void ads_data_callback(float * sample, uint8_t sample_type)
 {
-  if(sample_type == ADS_SAMPLE)
-  {
-    // Low pass IIR filter
-    signal_filter(sample);
   
-    // Deadzone filter
-    deadzone_filter(sample);
-  
-    Serial.println(sample[0]);
-    
-    for (int channel = 0; channel < 2; channel++)
-    {
-      //Keep in mind that getScaledAnalogData returns a float
-      hand[channel] = indexSensor.getScaledAnalogData(channel);
-      hand[channel + 2] = pinkySensor.getScaledAnalogData(channel);
-    }
-    for (int finger = 0; finger < 4; finger++)
-    {
-      Serial.print(finger);
-      Serial.print(": ");
-      Serial.print(hand[finger]);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
 }
 
 void setup() {
@@ -129,14 +123,141 @@ void setup() {
     }
     Serial.println();
   }
+
+  // Initialize Bluetooth:
+  pinMode(LED_PIN, OUTPUT); // Turn on-board blue LED off
+  digitalWrite(LED_PIN, LED_OFF);
+  pinMode(BUTTON_PIN, INPUT);
   
-  // Start reading data in interrupt mode
+  Bluefruit.begin();
+  // Set max power. Accepted values are: -40, -30, -20, -16, -12, -8, -4, 0, 4
+  Bluefruit.setTxPower(4);
+  Bluefruit.setName("Raytac AT-UART");
+  bleuart.begin();
+
+  // Start advertising device and bleuart services
+  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+  Bluefruit.Advertising.addTxPower();
+  Bluefruit.Advertising.addService(bleuart);
+  Bluefruit.ScanResponse.addName();
+
+  Bluefruit.Advertising.restartOnDisconnect(true);
+  // Set advertising interval (in unit of 0.625ms):
+  Bluefruit.Advertising.setInterval(32, 244);
+  // number of seconds in fast mode:
+  Bluefruit.Advertising.setFastTimeout(30);
+  Bluefruit.Advertising.start(0);
+  
   ads_run(true);
+  // Start reading data in polled mode
+  ads_polled(true);
+
+  // Wait for first sample
+  delay(10);
   /*endregion BendLabs Setup*/
 }
 
 void loop() {
+
+  float sample[2];
+  uint8_t data_type;
+
+  // Read data from the one axis ads sensor
+  int ret_val = ads_read_polled(sample, &data_type);
+
+  // Check if read was successfull
+  if(ret_val == ADS_OK)
+  {
+    if(data_type == ADS_SAMPLE)
+    {
+      // Low pass IIR filter
+      signal_filter(sample);
+    
+      // Deadzone filter
+      deadzone_filter(sample);
   
+      // Standardize sample from 0~180 to 100~0
+      int stdSample = map(sample[0], 0, 180, 100, 0);
+      HAND[0].full = constrain(stdSample, 0, 100);
+      
+  //    Serial.print(sample[0]);
+  
+  //    Serial.print("0: ");
+  //    Serial.print(stdSample);
+  //    Serial.print(" ");
+      
+      for (int channel = 0; channel < 2; channel++)
+      {
+        //Keep in mind that getScaledAnalogData returns a float
+        HAND[channel + 1].full = indexSensor.getScaledAnalogData(channel) * 100;
+        HAND[channel + 3].full = pinkySensor.getScaledAnalogData(channel) * 100;
+      }
+      for (int finger = 0; finger < 5; finger++)
+      {
+        Serial.print(finger);
+        Serial.print(": ");
+        Serial.print(HAND[finger].full);
+        Serial.print(" ");
+        Serial.print(HAND[finger].byte_data);
+        Serial.print(" ");
+        bleuart.write(HAND[finger].byte_data);
+      }
+    Serial.println();
+    }
+  }
+
+  // Check for received hot keys on the com port
+  if(Serial.available())
+  {
+    parse_com_port();
+  }
+  
+  // Delay 20ms to keep 50 Hz sampling rate, Do not increase rate past 500 Hz.
+  delay(20);
+}
+
+/* Function parses received characters from the COM port for commands */
+void parse_com_port(void)
+{
+  char key = Serial.read();
+
+  switch(key)
+  {
+    case '0':
+      // Take first calibration point at zero degrees
+      ads_calibrate(ADS_CALIBRATE_FIRST, 0);
+      break;
+    case '9':
+      // Take second calibration point at 180 degrees
+      ads_calibrate(ADS_CALIBRATE_SECOND, 180);
+      break;
+    case 'c':
+      // Restore factory calibration coefficients
+      ads_calibrate(ADS_CALIBRATE_CLEAR, 0);
+      break;
+    case 'r':
+      // Start sampling in interrupt mode
+      ads_run(true);
+      break;
+    case 's':
+      // Place ADS in suspend mode
+      ads_run(false);
+      break;
+    case 'f':
+      // Set ADS sample rate to 200 Hz (interrupt mode)
+      ads_set_sample_rate(ADS_200_HZ);
+      break;
+    case 'u':
+      // Set ADS sample to rate to 10 Hz (interrupt mode)
+      ads_set_sample_rate(ADS_10_HZ);
+      break;
+    case 'n':
+      // Set ADS sample rate to 100 Hz (interrupt mode)
+      ads_set_sample_rate(ADS_100_HZ);
+      break;
+    default:
+      break;
+  }
 }
 
 /* 

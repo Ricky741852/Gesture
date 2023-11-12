@@ -18,6 +18,7 @@
 
 #include "Arduino.h"
 #include "ads.h"
+#include <bluefruit.h>
 #include <SparkFun_ADS1015_Arduino_Library.h>
 #include <Wire.h>
 
@@ -29,11 +30,26 @@ void deadzone_filter(float * sample);
 void signal_filter(float * sample);
 void parse_com_port(void);
 
+BLEUart bleuart; // uart over ble
 
+// Define hardware: LED and Button pins and states
+const int LED_PIN = 7;
+#define LED_OFF LOW
+#define LED_ON HIGH
+
+const int BUTTON_PIN = 13;
+#define BUTTON_ACTIVE LOW
+
+const int F_AMOUNT = 5;
+
+union F_DataSplit  // Flex Sensor_Data Split
+{
+  int full;
+  uint8_t byte_data;
+} HAND[F_AMOUNT];
 
 ADS1015 pinkySensor;
 ADS1015 indexSensor;
-float hand[4] = {0, 0, 0, 0};
 //Calibration Array
 uint16_t handCalibration[4][2] = {
 //{low, hi} switch these to reverse which end is 1 and which is 0  
@@ -53,21 +69,24 @@ void ads_data_callback(float * sample, uint8_t sample_type)
   
     // Deadzone filter
     deadzone_filter(sample);
-  
-    Serial.println(sample[0]);
+
+    // Standardize sample from 0~180 to 100~0
+    int stdSample = map(sample[0], 0, 180, 100, 0);
+    HAND[0].full = constrain(stdSample, 0, 100);
     
     for (int channel = 0; channel < 2; channel++)
     {
       //Keep in mind that getScaledAnalogData returns a float
-      hand[channel] = indexSensor.getScaledAnalogData(channel);
-      hand[channel + 2] = pinkySensor.getScaledAnalogData(channel);
+      HAND[channel + 1].full = indexSensor.getScaledAnalogData(channel) * 100;
+      HAND[channel + 3].full = pinkySensor.getScaledAnalogData(channel) * 100;
     }
-    for (int finger = 0; finger < 4; finger++)
+    for (int finger = 0; finger < 5; finger++)
     {
-      Serial.print(finger);
-      Serial.print(": ");
-      Serial.print(hand[finger]);
-      Serial.print(" ");
+//      Serial.print(finger);
+//      Serial.print(": ");
+//      Serial.print(HAND[finger].full);
+//      Serial.print(" ");
+//      Serial.write(HAND[finger].byte_data);
     }
     Serial.println();
   }
@@ -76,7 +95,9 @@ void ads_data_callback(float * sample, uint8_t sample_type)
 void setup() {
   
   Serial.begin(115200);
-  while (!Serial) { delay(10); }
+  // Uncomment the next line when debugging with the Serial Monitor
+//  while (!Serial) { delay(10); }
+
   /*BendLabs starting setup*/
   
   Serial.println("Initializing One Axis sensor");
@@ -101,11 +122,13 @@ void setup() {
   {
     Serial.println("One Axis ADS initialization succeeded...");
   }
-  
-  /*SparkFun starting setup*/
+
+  /*endregion BendLabs Setup*/
 
   // Wire has already begin in ads_init(&init) by Ricky 2023.9.26
   // Wire.begin();
+  
+  /*SparkFun starting setup*/
   
   //Begin our finger sensors, change addresses as needed.
   if (pinkySensor.begin(Wire, 100000, ADS1015_ADDRESS_GND) == false) 
@@ -129,14 +152,45 @@ void setup() {
     }
     Serial.println();
   }
+
+  /*endregion SparkFun Setup*/
+
+  // Initialize Bluetooth:
+  pinMode(LED_PIN, OUTPUT); // Turn on-board blue LED off
+  digitalWrite(LED_PIN, LED_OFF);
+  pinMode(BUTTON_PIN, INPUT);
+  
+  Bluefruit.begin();
+  // Set max power. Accepted values are: -40, -30, -20, -16, -12, -8, -4, 0, 4
+  Bluefruit.setTxPower(4);
+  Bluefruit.setName("Raytac AT-UART");
+  bleuart.begin();
+
+  // Start advertising device and bleuart services
+  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+  Bluefruit.Advertising.addTxPower();
+  Bluefruit.Advertising.addService(bleuart);
+  Bluefruit.ScanResponse.addName();
+
+  Bluefruit.Advertising.restartOnDisconnect(true);
+  // Set advertising interval (in unit of 0.625ms):
+  Bluefruit.Advertising.setInterval(32, 244);
+  // number of seconds in fast mode:
+  Bluefruit.Advertising.setFastTimeout(30);
+  Bluefruit.Advertising.start(0);
   
   // Start reading data in interrupt mode
   ads_run(true);
-  /*endregion BendLabs Setup*/
 }
 
 void loop() {
-  
+  bleuart.write('e'); // 'e' = 101
+  for (int finger = 0; finger < 5; finger++)
+  {
+    bleuart.write(HAND[finger].byte_data);
+  }
+  delay(20);
+
 }
 
 /* 
