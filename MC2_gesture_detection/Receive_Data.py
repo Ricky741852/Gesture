@@ -20,8 +20,7 @@ USER = "RICKY"  # 資料蒐集者
 DATE = time.strftime('%Y-%m-%d', time.localtime(time.time()))  # 當天日期
 GESTURE = "6"  # 手勢動作
 DATASET = "TR"
-
-SENSOR_NUM = 3
+SENSOR_NUM = 5
 
 
 # windows : 空白鍵按鍵監聽
@@ -40,30 +39,26 @@ def kbhit():
     ''' Returns True if keyboard character was hit, False otherwise.
     '''
 
-    dr, dw, de = select([sys.stdin], [], [], 0)
-    return dr != []
+    return msvcrt.kbhit()
 
 
 if __name__ == '__main__':
 
-    # folder = f"{PATH}/{USER}/{DATE}-{DATASET}/{GESTURE}"
     folder = f"{PATH}/{GESTURE}"
     if not os.path.exists(folder):
         os.makedirs(folder)  # 產生檔案儲存路徑
 
-    # split_data = numpy.zeros((SENSOR_NUM,2), dtype=int)
-    # full_data = numpy.zeros(SENSOR_NUM,dtype=int)
-
     STOP_FLAG = False
+    dataInNum = 5   # number of data input
+    serialData = serialUSB()  # initializes all required variables, configurations are in config.ini
+    
 
-    # portName = 'COM5'  # for windows users
-    portName = '/dev/ttyACM1'  # for linux users
-    baudRate = 115200
-    maxPlotLength = 100
-    dataNumBytes = 2  # number of bytes of 1 data point
-    dataInNum = 3
-    serialData = serialUSB(portName, baudRate, maxPlotLength, dataNumBytes,
-                           dataInNum)  # initializes all required variables
+    # portName = 'COM8'  # for windows users
+    # portName = '/dev/ttyACM1'  # for linux users
+    # baudRate = 115200
+    # maxPlotLength = 100
+    # dataNumBytes = 2  # number of bytes of 1 data point   # not used
+    # serialData = serialUSB(portName, baudRate, maxPlotLength, dataInNum)  # initializes all required variables
 
     try:
         data_total = 0
@@ -77,9 +72,9 @@ if __name__ == '__main__':
             while 1:
                 c = msvcrt.getch()
                 print(ord(c))
-                if c == 'w':  # write data
+                if c == b'w':  # write data
                     break
-                elif c == 'q':  # quit recording
+                elif c == b'q':  # quit recording
                     STOP_FLAG = True
                     break
 
@@ -93,17 +88,24 @@ if __name__ == '__main__':
             with open(f"{folder}/{GESTURE}_{deTime}_{USER}_{DATASET}.txt", "w") as sensor_File:
                 # 開始紀錄回傳的感測值
                 serialData.serialConnection.reset_input_buffer()
+                data_buffer = []    #用來暫存每組資料的緩衝區
+                first_line = True   #用來標記是否為第一行
                 while not hit_key():
-                    # print("hit esc to exit")
-                    check = serialData.serialConnection.read().decode("ISO-8859-1")  # Bluetooth 接收與解譯
-                    # print(check)
-                    if check == 'S':
-                        for i in range(dataInNum):
-                            raw = serialData.serialConnection.read(2)
-                            data = int.from_bytes(raw, byteorder='little', signed=True) * -1
-                            sensor_File.write("{0:4d},".format(data))
-                        sensor_File.write("\n")
-
+                    byteData = serialData.serialConnection.read()
+                    if byteData == b'e':
+                        if(len(data_buffer) == dataInNum):
+                            if not first_line:
+                                print()
+                            processed_data = ["{0:4d}".format(-(data - 100))  for _, data in enumerate(data_buffer)]
+                            print(",".join(processed_data), end='')
+                            sensor_File.write(",".join(processed_data))
+                            sensor_File.write('\n')
+                            first_line = False
+                        data_buffer = []
+                    else:
+                        data = int.from_bytes(byteData, "big")
+                        data_buffer.append(data)
+            print()
             print("END recording data")
     finally:
         serialData.serialConnection.close()

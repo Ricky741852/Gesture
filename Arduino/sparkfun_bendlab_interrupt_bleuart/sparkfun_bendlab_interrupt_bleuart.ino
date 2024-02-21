@@ -40,7 +40,7 @@ const int LED_PIN = 7;
 const int BUTTON_PIN = 13;
 #define BUTTON_ACTIVE LOW
 
-const int F_AMOUNT = 5;
+const int F_AMOUNT = 5; // Number of fingers
 
 union F_DataSplit  // Flex Sensor_Data Split
 {
@@ -80,15 +80,16 @@ void ads_data_callback(float * sample, uint8_t sample_type)
       HAND[channel + 1].full = indexSensor.getScaledAnalogData(channel) * 100;
       HAND[channel + 3].full = pinkySensor.getScaledAnalogData(channel) * 100;
     }
-    for (int finger = 0; finger < 5; finger++)
-    {
-//      Serial.print(finger);
-//      Serial.print(": ");
-//      Serial.print(HAND[finger].full);
-//      Serial.print(" ");
-//      Serial.write(HAND[finger].byte_data);
-    }
-    Serial.println();
+    /* Uncomment the following lines to print the data to the Serial Monitor */
+    // for (int finger = 0; finger < 5; finger++)
+    // {
+    //  Serial.print(finger);
+    //  Serial.print(": ");
+    //  Serial.print(HAND[finger].full);
+    //  Serial.print(" ");
+    //  Serial.write(HAND[finger].byte_data);
+    // }
+    // Serial.println();
   }
 }
 
@@ -98,7 +99,7 @@ void setup() {
   // Uncomment the next line when debugging with the Serial Monitor
 //  while (!Serial) { delay(10); }
 
-  /*BendLabs starting setup*/
+  #pragma region BendLabs Setup
   
   Serial.println("Initializing One Axis sensor");
   
@@ -123,12 +124,12 @@ void setup() {
     Serial.println("One Axis ADS initialization succeeded...");
   }
 
-  /*endregion BendLabs Setup*/
+  #pragma endregion BendLabs Setup
+  
+  #pragma region SparkFun Setup
 
   // Wire has already begin in ads_init(&init) by Ricky 2023.9.26
   // Wire.begin();
-  
-  /*SparkFun starting setup*/
   
   //Begin our finger sensors, change addresses as needed.
   if (pinkySensor.begin(Wire, 100000, ADS1015_ADDRESS_GND) == false) 
@@ -153,7 +154,9 @@ void setup() {
     Serial.println();
   }
 
-  /*endregion SparkFun Setup*/
+  #pragma endregion SparkFun Setup
+
+  #pragma region Bluetooth Setup
 
   // Initialize Bluetooth:
   pinMode(LED_PIN, OUTPUT); // Turn on-board blue LED off
@@ -178,6 +181,8 @@ void setup() {
   // number of seconds in fast mode:
   Bluefruit.Advertising.setFastTimeout(30);
   Bluefruit.Advertising.start(0);
+
+  #pragma endregion Bluetooth Setup
   
   // Start reading data in interrupt mode
   ads_run(true);
