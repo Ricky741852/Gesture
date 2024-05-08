@@ -206,3 +206,13 @@ yarn-error.log*
 
 # Ballerina
 .ballerina/
+
+*/confusion_matrix
+*/format_data
+*/saved_model_h5
+*/saved_model_pb
+*/static_plot
+*/testAnimation
+*/trainData
+*/training_logs
+*/Visualization_trainData
