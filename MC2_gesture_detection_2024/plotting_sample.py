@@ -22,8 +22,6 @@ PredictData = namedtuple('PredictData', ['label', 'max_value'])
 
 class Plot():
     def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.index = index
-        self.model_name = model_name
         self.window_size = windows_size
         self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class_list, self.g_class_name = Gesture_Data_Model.generate_test_data(index)
 
@@ -34,9 +32,10 @@ class Plot():
         # Prediction data plottings
         self.g_colors = ["orange", "blue", "red", "brown", "green", "purple"]
         # 取得所有分類的最高分數
-        self.predict_data = [PredictData(label=6, max_value=0) for _ in range(self.window_size - 1)]
+        self.predict_data_only_show_highest = [PredictData(label=6, max_value=0) for _ in range(self.window_size)]
+
         # 取得每個分類的最高分數
-        self.predict_data_per_category = [list() for _ in range(len(self.gesture_class_list))]
+        self.predict_data = [list() for _ in range(len(self.gesture_class_list))]
 
         self.Gesture_model = Gesture_Detection(model_name, windows_size=windows_size)
 
@@ -82,35 +81,29 @@ class Plot():
             return False
         print("gen_predict_data start")
         
-        self.raw_data = self.raw_data
         self.np_data = np.array(self.raw_data)
+        # 最前方補上49個0，以產生第一筆raw data的window，進而預測第一個分數
         data_with_zeros_front = np.insert(self.np_data, 0, np.zeros((self.window_size -1, len(self.raw_class_list))), axis=0)
-        self.np_data = data_with_zeros_front
 
-        data = self.np_data/360
+        data = data_with_zeros_front/360
         self.windows = self.Gesture_model.make_sliding_windows(data)
-        predictions = self.Gesture_model.predict(self.windows)
+        self.predict_data = self.Gesture_model.predict(self.windows)
 
-        for i in range(len(predictions)):
-            for j in range(6):
-                self.predict_data_per_category[j].append((predictions[i][j]))
         return True
 
     def generate_static_plot(self):
             # 處理原始數據
-            for i, signal_row in enumerate(np.nditer(self.np_data, flags=['external_loop'], order='F')):
-                y_raw = signal_row[windows_size - 1:]
-                self.lines_raw[i].set_ydata(y_raw)
+            raw_data_T = self.np_data.T
+            for i in range(len(self.raw_class_list)):
+                self.lines_raw[i].set_ydata(raw_data_T[i])
 
             # # 處理 Ground Truth 數據
-            y_truth = self.ground_truth
-            y_truth[y_truth == 0] = np.nan # 將 0 的值轉換為 NaN，這樣就不會在圖上畫出來
-            self.lines_truth.set_ydata(y_truth)
+            self.lines_truth.set_ydata(self.ground_truth)
 
             # # 處理預測數據
+            predict_data_T = np.array(self.predict_data).T
             for i in range(len(self.gesture_class_list)):
-                y_predict = self.predict_data_per_category[i]
-                self.lines_predict[i].set_ydata(y_predict)
+                self.lines_predict[i].set_ydata(predict_data_T[i])
 
             # 儲存靜態圖片
             plt.savefig('./static_plot/myStaticPlot.png')
