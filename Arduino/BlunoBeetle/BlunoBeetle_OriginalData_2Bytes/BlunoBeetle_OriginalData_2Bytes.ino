@@ -51,7 +51,7 @@ void setup() {
   init.ads_sample_callback = &ads_data_callback;  // Provide callback for new data
   init.reset_pin = ADS_RESET_PIN;                 // Pin connected to ADS reset line
   init.datardy_pin = ADS_INTERRUPT_PIN;           // Pin connected to ADS data ready interrupt
-  init.addr = 10;
+  init.addr = 5;
 
   // Initialize ADS hardware abstraction layer, and set the sample rate
   int ret_val = ads_init(&init);
@@ -119,7 +119,7 @@ void loop() {
       deadzone_filter(sample);
 
       // Standardize sample from -90~90 to 0~200
-      int stdSample = map(sample[0], 250, -175, 0, 200);
+      int stdSample = map(sample[0], 120, -135, 0, 200);
       F_Data[0].full = constrain(stdSample, 0, 200); //設定上下限
       
       for (int channel = 0; channel < 2; channel++)

@@ -1,8 +1,18 @@
-# Gesture Recognition on Gemmini
+# Gesture Recognition
+
+## Project Structure
+
+- `config.ini`: Contains serial connection settings including port, baudrate, dataSeriesLength, and numSensorGroups.
+- `main.py`: The main entry point for the program.
+- `requirement.txt`: Lists the dependencies required for the project environment.
+- `data/`: Contains raw, processed, and dataset files. See [data/README.md](data/README.md) for more details.
+- `logs/`: Contains logs generated during training and evaluation. See [logs/README.md](logs/README.md) for more details.
+- `output/`: Contains output files such as images, animations, and trained models. See [output/README.md](output/README.md) for more details.
+- `src/`: Contains source code organized by functionality. See [src/README.md](src/README.md) for more details.
 
 ## Usage
 
-- `main.py`: main program that allows the user to choose whether to execute model training, model evaluation, or model quantization
+- `main.py`: main program that allows the user to choose whether to execute model training, model evaluation, etc.
 
 ### Training
 
@@ -18,76 +28,68 @@ python main.py --mode train --epoch_num=50
 python main.py --mode test --test_all --plot_cm
 ```
 
-- If you want to inference single test data, run this with index between 0 to 79.
+- If you want to inference single test data, run this with index between 0 to xx.
 
 ```commandline
-python main.py --mode test --single_idx=0
+python main.py --mode test --index=0
 ```
 
-### Writing to Header File
+### Visualization
+
+- If you want to show the real-time visualization, run this.
 
 ```commandline
-python main.py --mode write_model
+python main.py --mode animation --animation_type=realtime
 ```
 
+- If you want to show the sample data visualization in image, run this.
+
 ```commandline
-python main.py --mode write_input
+python main.py --mode image --image_type=sample
+```
+
+Note: For --animation_type, you can also choose sample or simulation. For --image_type, you can also choose rawdata or groundtruth.
+
+### Receiving Data
+
+To receive data in your program, you can use the following command:
+
+```commandline
+python main.py --mode record
+```
+
+You can configure the data source and other settings in the `config.ini` file.
+
+### Labeling Data
+
+To label data, you can use the following command:
+
+```commandline
+python src\utils\spotting_GUI\Spotting_GUI.py
 ```
 
 ### Optional arguments
 
 ```commandline=0
-  -h, --help            show this help message and exit
-  -m MODE, --mode MODE  Mode of the program. Choose from: train, test, write_model, write_input, get_threshold, get_layer, none
-  --eval_model EVAL_MODEL
-                        Name of the model for evaluation. Default is model_20230426_150158.h5.
-  --single_idx SINGLE_IDX   Index of the single file to test. Default is 0.
-  --test_all                 Whether to test all files. Default is False.
-  --plot_cm                Whether to plot confusion matrix during testing. Default is False.
-  --post_process        Whether to do post-process during testing. Default is False.
-  --windows_stride WINDOWS_STRIDE
-                        The stride of sliding window. Default is 20.
-  --epoch_num EPOCH_NUM
-                        The number of epochs for training. Default is 50.
+  -h, --help              show this help message and exit
+  -m MODE, --mode         Mode of the program. 
+                          Choose from: train, test, get_layer, animation, image, record
+  --eval_model            Name of the model for evaluation. 
+                          Default is model_20240703_130244.h5.
+  --index                 Index of the single file to test. 
+                          Default is 0.
+  --test_all              Whether to test all files. 
+                          Default is False.
+  --plot_cm               Whether to plot confusion matrix during testing. 
+                          Default is False.
+  --epoch_num             The number of epochs for training. 
+                          Default is 50.
+  -a_type, --animation_type
+                          Type of animation for visualization. 
+                          Default is realtime. 
+                          Choose from: realtime, sample, simulation.
+  -i_type, --image_type   Type of image for visualization. 
+                          Default is sample. 
+                          Choose from: sample, rawdata, groundtruth.
+
 ```
-
-
-### Evaluate
-
-- `confusion_matrix/`: generated when running in test mode, used to evaluate the model
-
-### Others
-
-- `library.py`: functions for main code, including formulas for quantization
-
-## Preprocess
-
-- `pre-process.py`: preprocess for raw training data labeling
-- `utility.py`: functions required for data preprocessing
-- `training_data/`: original raw data for training
-- `testing_data/`: original raw data for testing
-- `other_data/`: original raw data for zero-label gesture
-- `format_data/`: preprocess output, formatted pt data file
-
-## Model
-
-- `model_structure.py`: used to establish the structure of the model
-- `train_model.py`: used to train and evaluate the model
-- `saved_model_h5/`: place to save tensorflow h5 model
-- `saved_model_pb/`: place to save tensorflow pb model, just as a backup
-
-## Quantization
-
-- `quantize_model.py`: quantize the fp32 model, input data to int8 and write it into the header file
-- `include_header/`: header file that needs to be placed in `gemmini-rocc-tests/include`
-- `gemmini_c_code/`: main C used to perform model calculations in `gemmini-rocc-tests/bareMetalC`
-
-## Include
-
-- `func.h`: c function for running gesture_recognition_on_gemmini.c
-- `gesture_input/`: all quantized gesture data for gemmini input
-- `quantized_model_{timestamp}`: quantized model data for gemmini
-
-## Memo
-
-- `requirements.txt`: for installation reference only, modules list in conda env

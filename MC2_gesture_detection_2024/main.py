@@ -1,23 +1,15 @@
 import argparse
 
-from train_model import *
-from library import *
+from src.models.train import GestureTensorflow
+from src.utils.library import *
+from src.visualization import Visualization
+from src.utils.receive_data import record
 
-MODEL_DIR = 'saved_model_h5'  # Directory to save the trained model
-SAVE_DIR = 'format_data'  # Directory to save formatted data
-INCLUDE_DIR = 'include_header'  # Directory for include headers
-SOURCE_DIR = 'gemmini_c_code'  # Directory for Gemmini C code
-GEMMINI_PATH = os.path.join(
-    os.path.expanduser('~'),
-    'chipyard',
-    'generators',
-    'gemmini',
-    'software',
-    'gemmini-rocc-tests',
-)  # Path to Gemmini
-CFILE_NAME = 'gesture_recognition_on_gemmini.c'  # Name of the C source file
-# EVAL_MODEL = 'model_20230426_150158.h5'  # Default model for evaluation
-EVAL_MODEL = 'model_20240318_184740.h5'
+MODEL_DIR = 'output/models'  # Directory to save the trained model
+DATASETS_DIR = 'data/datasets/testData'  # Directory to save raw data
+PROCESSSED_DATASETS_DIR = 'data/processed/datasets'  # Directory to save formatted data 將訓練資料轉換為.pt檔
+EVAL_MODEL = 'model_20240717_170440'
+WINDOW_SIZE = 50
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Gesture Recognition on Gemmini')
 
@@ -27,7 +19,7 @@ if __name__ == '__main__':
         '--mode',
         type=str,
         required=True,
-        help='Mode of the program. Choose from: train, test, write_model, write_input, get_threshold, get_layer, none',
+        help='Mode of the program. Choose from: train, test, get_layer, none',
     )
     parser.add_argument(
         '--eval_model',
@@ -36,7 +28,7 @@ if __name__ == '__main__':
         help=f'Name of the model for evaluation. Default is {EVAL_MODEL}.',
     )
     parser.add_argument(
-        '--single_idx',
+        '--index',
         type=int,
         default=0,
         help='Index of the single file to test. Default is 0.',
@@ -52,51 +44,54 @@ if __name__ == '__main__':
         help='Whether to plot confusion matrix during testing. Default is False.',
     )
     parser.add_argument(
-        '--post_process',
-        action='store_true',
-        help='Whether to do post-process during testing. Default is False.',
-    )
-    parser.add_argument(
-        '--windows_stride',
-        type=int,
-        default=20,
-        help='The stride of sliding window. Default is 20.',
-    )
-    parser.add_argument(
         '--epoch_num',
         type=int,
         default=50,
         help='The number of epochs for training. Default is 50.',
     )
+    parser.add_argument(
+        '-a_type',
+        '--animation_type',
+        type=str,
+        default='realtime',
+        help='The type of animation to run. Default is realtime. Choose from: realtime, sample, simulation.',
+    )
+    parser.add_argument(
+        '-i_type',
+        '--image_type',
+        type=str,
+        default='sample',
+        help='The type of image to run. Default is sample. Choose from: sample, rawdata, groundtruth.',
+    )
+
 
     args = parser.parse_args()
 
     mode = args.mode #mode
     
     # GestureTensorflow Parameters
-    windows_stride = args.windows_stride
     epoch_num = args.epoch_num
 
     # Test Mode Parameters
     eval_model = args.eval_model
-    single_idx = args.single_idx
+    index = args.index
     test_all = args.test_all
     plot_cm = args.plot_cm
-    post_process = args.post_process
+
+    # Visualization Parameters
+    animation_type = args.animation_type
+    image_type = args.image_type
 
     print(Color.INFO + f'Now running mode: {mode}' + Color.RESET)
 
-    check_directories(MODEL_DIR, SAVE_DIR, INCLUDE_DIR, SOURCE_DIR)
-
     run = GestureTensorflow(
         model_path=MODEL_DIR,
-        save_path=SAVE_DIR,
-        include_path=INCLUDE_DIR,
-        class_num=6,
-        windows_size=50,
-        windows_stride=windows_stride,
+        save_path=PROCESSSED_DATASETS_DIR,
+        class_num=4,
+        windows_size=WINDOW_SIZE,
         epoch_num=epoch_num,
     )
+    
 
     if mode == 'train':
         run.build_model()
@@ -105,33 +100,31 @@ if __name__ == '__main__':
     elif mode == 'test':
         run.test_model(
             model_evaluation=eval_model,
-            single_idx=single_idx,
+            index=index,
             test_all=test_all,
-            plot_cm=plot_cm,
-            post_process=post_process
+            plot_cm=plot_cm
         )
-
-    elif mode == 'write_model':
-        quantized_model_name = run.quantize_model(model_quantization=eval_model)
-        copy_hfile_to_gemmini(quantized_model_name, INCLUDE_DIR, GEMMINI_PATH)
-
-    elif mode == 'write_input':
-        quantized_input_dir = run.quantize_input(single_idx=single_idx, write_all=True)
-        copy_hdir_to_gemmini(quantized_input_dir, GEMMINI_PATH, folder='gesture_input')
-
-    elif mode == 'get_threshold':
-        run.predict_zero_label_gesture(model_evaluation=eval_model, do_eval=True)
 
     elif mode == 'get_layer':
         run.get_model_layer_weights(model_evaluation=eval_model)
+
+    elif mode == 'animation':
+        print(Color.MSG + f'Animating {animation_type}...' + Color.RESET)
+        visualization = Visualization(EVAL_MODEL, DATASETS_DIR, WINDOW_SIZE)
+        visualization.animation(animation_type)
+    
+    elif mode == 'image':
+        print(Color.MSG + f'Visualizing {image_type}...' + Color.RESET)
+        visualization = Visualization(EVAL_MODEL, DATASETS_DIR, WINDOW_SIZE)
+        visualization.image(image_type)
+
+    elif mode == 'record':
+        record()
 
     elif mode == 'none':
         pass
 
     else:
         raise ValueError(Color.RED + f'\nInvalid mode value: {mode}' + Color.RESET)
-
-    # copy_cfile_for_git(CFILE_NAME, GEMMINI_PATH, SOURCE_DIR)
-    # copy_hfile_for_git('func.h', GEMMINI_PATH, INCLUDE_DIR)
 
     pass

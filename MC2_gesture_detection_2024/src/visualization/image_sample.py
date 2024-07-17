@@ -1,4 +1,6 @@
 import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -10,36 +12,29 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-import numpy as np
-import matplotlib.pyplot as plt
-from animation_process import Gesture_Data
-from test import Gesture_Detection
 
-from collections import namedtuple
+from ..models.gesture_detector import GestureDetector
 
-# 定義一個名為 PredictData 的 namedtuple，包含 label 和 max_value 兩個屬性
-PredictData = namedtuple('PredictData', ['label', 'max_value'])
-
-class Plot():
+class Image_Sample():
     def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
         self.window_size = windows_size
-        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class_list, self.g_class_name = Gesture_Data_Model.generate_test_data(index)
+        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
 
         # Raw data plottings
         self.raw_class_list = ['1', '2', '3', '4', '5']
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
 
         # Prediction data plottings
-        self.g_colors = ["orange", "blue", "red", "brown", "green", "purple"]
-        # 取得所有分類的最高分數
-        self.predict_data_only_show_highest = [PredictData(label=6, max_value=0) for _ in range(self.window_size)]
+        self.gesture_class_list = ['0', '1', '2', '3']
+        self.gesture_colors = ["purple", "orange", "green", "red"]
 
         # 取得每個分類的最高分數
         self.predict_data = [list() for _ in range(len(self.gesture_class_list))]
 
-        self.Gesture_model = Gesture_Detection(model_name, windows_size=windows_size)
+        self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
         # 初始化畫布和軸
+        # self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 15))
         self.fig, (self.ax1, self.ax2, self.ax3) = plt.subplots(3, 1, figsize=(15, 15))
 
         # 畫出原始數據的線條
@@ -57,7 +52,7 @@ class Plot():
 
         # 畫出預測數據的線條
         self.lines_predict = [self.ax3.plot([], [], lw=2, label=f'Gesture {class_num}', color=color)[0]
-                              for class_num, color in zip(self.gesture_class_list, self.g_colors)]
+                              for class_num, color in zip(self.gesture_class_list, self.gesture_colors)]
         self.ax3.set_xlim(0, len(self.raw_data))
         self.ax3.set_ylim(0, 1)  # 假設 y 軸範圍在 0 到 1 之間
         self.ax3.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
@@ -79,7 +74,6 @@ class Plot():
         if len(self.raw_data) < self.window_size:
             print("Data less than {}".format(self.window_size))
             return False
-        print("gen_predict_data start")
         
         self.np_data = np.array(self.raw_data)
         # 最前方補上49個0，以產生第一筆raw data的window，進而預測第一個分數
@@ -92,34 +86,23 @@ class Plot():
         return True
 
     def generate_static_plot(self):
-            # 處理原始數據
-            raw_data_T = self.np_data.T
-            for i in range(len(self.raw_class_list)):
-                self.lines_raw[i].set_ydata(raw_data_T[i])
+        # 處理原始數據
+        raw_data_T = self.np_data.T
+        for i in range(len(self.raw_class_list)):
+            self.lines_raw[i].set_ydata(raw_data_T[i])
 
-            # # 處理 Ground Truth 數據
-            self.lines_truth.set_ydata(self.ground_truth)
+        # 處理 Ground Truth 數據
+        self.lines_truth.set_ydata(self.ground_truth)
 
-            # # 處理預測數據
-            predict_data_T = np.array(self.predict_data).T
-            for i in range(len(self.gesture_class_list)):
-                self.lines_predict[i].set_ydata(predict_data_T[i])
+        # 處理預測數據
+        predict_data_T = np.array(self.predict_data).T
+        for i in range(len(self.gesture_class_list)):
+            self.lines_predict[i].set_ydata(predict_data_T[i])
 
-            # 儲存靜態圖片
-            plt.savefig('./static_plot/myStaticPlot.png')
-            plt.show()
+        # 儲存靜態圖片
+        output_dir = 'output/images/sample'
+        os.makedirs(output_dir, exist_ok=True)
+        raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
 
-if __name__ == "__main__":
-    windows_size = 50
-    model_name = "model_20240401_011610"
-
-    G = Gesture_Data(r"./trainData", windows_size=windows_size)
-    
-    while True:
-        index = int(input("-1 to quit : "))
-        if index == -1:
-            break
-
-        ani = Plot(index, model_name, G, windows_size=windows_size)
-        if ani.generate_data():
-            ani.generate_static_plot()
+        plt.savefig(os.path.join(output_dir, f'image_sample_{raw_data_filename}.png'))
+        plt.show()

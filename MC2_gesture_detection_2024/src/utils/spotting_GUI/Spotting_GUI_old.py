@@ -150,6 +150,7 @@ def test(event):  # 點選txt檔案並生成波形圖
             fig.set_ylim([-0.1, 1.2])
             fig.set_yticks([0, 1])
             plt.step(x, y)
+            fig.text(0.5, 0.5, f'Distance: {end - start}', fontsize=15)
         except Exception as e:
             print(e)
 

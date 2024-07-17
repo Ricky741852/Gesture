@@ -4,10 +4,8 @@ from tensorflow.keras.models import load_model
 from sklearn.metrics import confusion_matrix, classification_report
 import tensorflow as tf
 
-import quantize_model
-from model_stucture import RevisedModel
-from pre_process import *
-from quantize_model import quantize_signals_windows
+from src.models.architecture import GestureModel
+from src.data.preprocess import *
 
 # if shows "find font: Font family [u'Times New Roman'] not found"
 # rm ~/.cache/matplotlib -rf
@@ -19,17 +17,14 @@ class GestureTensorflow:
         self,
         model_path,
         save_path,
-        include_path,
         windows_size,
-        windows_stride,
         class_num,
         epoch_num,
     ):
         self.model_path = model_path
+        self.curve_path = "output/curves"
         self.save_path = save_path
-        self.include_path = include_path
         self.windows_size = windows_size
-        self.windows_stride = windows_stride
         self.class_num = class_num
         self.epoch_num = epoch_num
 
@@ -40,7 +35,7 @@ class GestureTensorflow:
         different models are defined in the model_structure.py file.
         data_preprocess function is defined in pre-process.py"""
 
-        self.model = RevisedModel(
+        self.model = GestureModel(
             5, class_num=self.class_num, windows_size=self.windows_size
         ).build_model()
 
@@ -62,7 +57,7 @@ class GestureTensorflow:
 
         # Set up the model's name and logging directories
         model_name = f"model_{timestamp}"
-        log_dir = 'training_logs'
+        log_dir = 'logs/training_logs' + '/' + model_name
         check_directories(log_dir)
 
         # Set up the model callbacks during training
@@ -97,7 +92,7 @@ class GestureTensorflow:
         # Start training model
         history = self.model.fit(
             train_dataX['x'],
-            train_dataY['hm'],
+            train_dataY['y'],
             epochs=self.epoch_num,
             # 如果要一次處理更多的測試筆，需要將batch_size設置得較大，以確保模型能夠有效地處理這麼多的輸入。
             batch_size=64,
@@ -109,7 +104,7 @@ class GestureTensorflow:
         self.plot_train_history(history, model_name)
 
         # This is another model saving way, just in case
-        self.model.save(os.path.join('saved_model_pb', model_name))
+        # self.model.save(os.path.join('saved_model_pb', model_name))
 
     def plot_train_history(self, history, model_name):
         """Plotting the train and validation losses"""
@@ -122,8 +117,8 @@ class GestureTensorflow:
 
         # Save the plot of loss history
         savefig_name = os.path.join(
-            self.model_path,
-            f'{model_name}_train_and_val_loss_{self.epoch_num}_epoch.png',
+            self.curve_path,
+            f'{model_name}_{self.class_num}_Gesture_{self.epoch_num}_epoch.png',
         )
         plt.savefig(savefig_name)
         print(
@@ -131,7 +126,7 @@ class GestureTensorflow:
         )
         plt.show()
 
-    def test_model(self, model_evaluation, single_idx=0, test_all=False, plot_cm=False, post_process=False):
+    def test_model(self, model_evaluation, index=0, test_all=False, plot_cm=False):
         """This is the sliding-window version for all the test data prediction,
         where only one gesture txt file is inferred at a time, do all 72 txt files.
 
@@ -142,77 +137,45 @@ class GestureTensorflow:
             plot_cm: plot a confusion matrix if true
         """
 
-        model_evaluation = os.path.normpath(
-            os.path.join(self.model_path, model_evaluation)
-        )
+        model_path = os.path.join(os.path.dirname(__file__), '..', '..', 'output', 'models', f"{model_evaluation}.h5")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file does not exist at: {model_path}")
+        
+        # model_evaluation = os.path.normpath(
+        #     os.path.join(self.model_path, model_evaluation)
+        # )
         tag = 'without'
 
-        self.model = load_model(model_evaluation)
+        self.model = load_model(model_path)
         self.model.summary()
 
-        answer_label_list, output_label_list, data_length_list, windows_num_list = [], [], [], []
+        answer_label_list, output_label_list = [], []
         correct = 0
 
         if test_all:
-            file_start, file_end = 0, 300
+            file_start, file_end = 0, 200
         else:
-            file_start, file_end = single_idx, single_idx + 1
+            file_start, file_end = index, index + 1
 
         for idx in range(file_start, file_end):
             """Each piece of txt test data belongs to an individual index"""
 
             # Load testing data
-            my_test_data = test_preprocess(windows_size=self.windows_size, index=idx)
-            data, answer = my_test_data['x'], my_test_data['gesture_class']
-            print(f'Data length: {len(data)}')
-            data_length_list.append(len(data))  # Record the length of each test data for calculation of average length
+            test_data = test_preprocess(windows_size=self.windows_size, index=idx)
+            data, answer = test_data['x'], test_data['gesture_class']
 
-            windows = self.make_sliding_windows(data)
-            windows_num_list.append(windows.shape[0])
+            # 因為模型的輸入是三維的(None, 50, 5)，所以需要對輸入的數據進行reshape
+            reshaped_data = data.reshape(1, data.shape[0], data.shape[1])
 
-            predictions = self.model.predict(windows, verbose=0)
-            predict_label_list = []
-
-            for i in range(len(predictions)):
-                # Check which heatmap index is the max value in
-                output = torch.from_numpy(predictions[i])
-                max_value = torch.max(output)
-                max_value_index = torch.argmax(output)
-                predict_label = int((max_value_index % 6) + 1)
-                predict_label_list.append(predict_label)
-
-                # Post-process with threshold for prediction output
-                if post_process:
-                    # The threshold value is obtained by mode = 'get_threshold', get heatmaps of data labeled as zero
-                    # 資料集中的手勢資料和背景資料在特徵上有明顯的區別，使得模型可以較容易地區分它們。另外，手勢資料的數量也可能起到了作用。如果手勢資料的數量相對較多，而背景資料的數量相對較少，那麼模型可能更容易學習如何區分這兩類。
-                    thresholds = {1: 0.5862, 2: 0.7375, 3: 0.7749, 4: 0.6902, 5: 0.6737,6: 0.7698}
-                    tag = 'with'
-                    if predict_label in thresholds:
-                        if max_value > thresholds[predict_label]:
-                            predict_label_list.append(predict_label)
-                        else:
-                            predict_label = 0
-                            predict_label_list.append(predict_label)
-
-                print(Color.WARN + f'Gesture answer: {answer}', end=" " + Color.RESET)
-                print(
-                    Color.H_WARN
-                    + f'Gesture window predict: {predict_label}'
-                    + Color.RESET
-                )
-            
-            # Post-process for gesture prediction
-            # Record the most frequently occurring prediction result in predict_label_list, exclude zero values
-            predict_label_to_count = [x for x in predict_label_list if x != 0]
-            counter = Counter(predict_label_to_count)
-            most_common_value = counter.most_common(1)[0][0]
+            prediction = self.model.predict(reshaped_data, verbose=0)
+            predict_gesture = np.argmax(prediction)
 
             print(Color.H_OK + f'Gesture answer: {answer}', end=" " + Color.RESET)
-            print(Color.H_MSG + f'Gesture predict: {most_common_value}' + Color.RESET)
+            print(Color.H_MSG + f'Gesture predict: {predict_gesture}' + Color.RESET)
             answer_label_list.append(answer)
-            output_label_list.append(most_common_value)
+            output_label_list.append(predict_gesture)
 
-            if int(answer) == most_common_value:
+            if int(answer) == predict_gesture:
                 correct += 1
                 print(Color.H_OK + f'Predict the gesture correctly' + Color.RESET)
             else:
@@ -221,22 +184,9 @@ class GestureTensorflow:
         if test_all:
             # Calculate average data length of 72 test gesture files
             print(f'Windows size: {self.windows_size} (Sampling rate: 50/s)')
-            print(f'Windows stride: {self.windows_stride} (Sliding windows)')
-            average_data_length = sum(data_length_list) / len(data_length_list)
-            print(
-                Color.INFO
-                + f'Average length of test data: {average_data_length}'
-                + Color.RESET
-            )
-            average_windows_num = sum(windows_num_list) / len(windows_num_list)
-            print(
-                Color.INFO
-                + f'Average windows num of test data: {average_windows_num}'
-                + Color.RESET
-            )
 
             # Calculate accuracy of 72 test gesture files
-            accuracy = correct / 300
+            accuracy = correct / 200
             print(
                 Color.MSG
                 + f'Accuracy of test data ({tag} post-processing): {accuracy}'
@@ -329,87 +279,15 @@ class GestureTensorflow:
         else:
             return None
 
-    def predict_zero_label_gesture(self, model_evaluation, do_eval):
-        """Generate a heatmap of zero label gestures to define the threshold"""
-
-        if not os.path.isfile(os.path.join(self.save_path, f'format_zero_data.pt')):
-            data_preprocess(self.windows_size)
-
-        if do_eval:
-            # Load zero label data
-            test_dataX, test_dataY = self.load_data_from_file(tag='zero')
-
-            # Load model for evaluation
-            model_evaluation = os.path.normpath(
-                os.path.join(self.model_path, model_evaluation)
-            )
-            self.model = load_model(model_evaluation)
-
-            # run all prediction at the same time
-            predict_output = self.model.predict(test_dataX['x'])
-
-            predict_label_list = []
-            max_value_list_1, max_value_list_2, max_value_list_3, max_value_list_4, max_value_list_5, max_value_list_6 = [], [], [], [], [], []
-            max_value_lists_dict = {
-                1: max_value_list_1,
-                2: max_value_list_2,
-                3: max_value_list_3,
-                4: max_value_list_4,
-                5: max_value_list_5,
-                6: max_value_list_6,
-            }
-
-            for i in range(len(predict_output)):
-                print(
-                    Color.H_WARN + f"Gesture answer: {test_dataX['label'][i]}",
-                    end=' ' + Color.RESET,
-                )
-
-                output = torch.from_numpy(predict_output[i])
-                max_value = torch.max(output)
-                max_value_index = torch.argmax(output)
-                # print(f'Max value of heatmap:{max_value}')
-                predict_label = int(
-                    (max_value_index % 6) + 1
-                )  # check which heatmap index is the max value in
-                predict_label_list.append(predict_label)
-
-                if predict_label in max_value_lists_dict:
-                    max_value_lists_dict[predict_label].append(max_value)
-
-                print(Color.H_MSG + f'Gesture predict: {predict_label}' + Color.RESET)
-
-            # Find Max value in each heatmap
-            average_value_list = []
-            print(
-                Color.H_INFO
-                + '\nGet heatmap threshold for post-processing'
-                + '-' * 10
-                + Color.RESET
-            )
-            for i in range(1, 7):
-                print(
-                    f'Max_value_list_{i}: {max(max_value_lists_dict[i]):.4f}', end='  '
-                )
-                print(
-                    f'Avg_value_list_{i}: {sum(max_value_lists_dict[i]) / len(max_value_lists_dict[i]):.4f}'
-                )
-                average_value_list.append(
-                    sum(max_value_lists_dict[i]) / len(max_value_lists_dict[i])
-                )
-
-        else:
-            return None
-
     def plot_confusion_matrix(self, y_true, y_pred):
         """Calculate confusion matrix, precision and recall"""
 
-        cm_dir = 'confusion_matrix'
+        cm_dir = 'output/confusion_matrix'
         check_directories(cm_dir)
 
         # Generate classification report of precision and recall
         class_list = [
-            "Gesture " + str(i) for i in range(1, self.class_num + 1)
+            "Gesture " + str(i) for i in range(self.class_num)
         ]  # Gesture 1, ..., Gesture n
         print(Color.H_INFO + f'Classification Report ' + '=' * 60 + Color.RESET)
         print(classification_report(y_true, y_pred, target_names=class_list))
@@ -436,8 +314,8 @@ class GestureTensorflow:
                          color="white" if confusion_mat[i, j] > thresh else "black",
                          fontsize=10)
 
-        plt.xticks(range(6), class_list, fontsize=10)
-        plt.yticks(range(6), class_list, fontsize=12)
+        plt.xticks(range(self.class_num), class_list, fontsize=10)
+        plt.yticks(range(self.class_num), class_list, fontsize=12)
         plt.title('Confusion Matrix', fontsize=14, fontweight='bold', )
         plt.xlabel('Predicted Gesture', fontsize=14, fontweight='bold')
         plt.ylabel('True Gesture', fontsize=12, fontweight='bold')
@@ -452,23 +330,6 @@ class GestureTensorflow:
             if each_label in label_counter:
                 label_counter[each_label] += 1
         print(f'Gesture {tag} Count: {label_counter}')
-
-    def make_sliding_windows(self, data):
-        """Sampling rate = 50/s, windows_stride is the step size of the sliding window
-        For example: windows_size = 100, windows_stride = 50, it means that window slides per second
-        """
-        # Sampling rate = 50/s, windows_stride is the step size of the sliding window
-        stride = self.windows_stride
-
-        # Generate sliding windows
-        windows = []
-        for i in range(0, len(data) - self.windows_size + 1, stride):
-            window = data[i: i + self.windows_size]
-            windows.append(window)
-        windows = np.array(windows)
-        print(f'Window shape: {windows.shape}')
-
-        return windows
 
     def get_model_layer_weights(self, model_evaluation):
         """View the weights of each conv layers in the float32 model, debug used"""
@@ -495,95 +356,7 @@ class GestureTensorflow:
                 elif 'batch_normalization' in layer.name:
                     BN = np.array(layer.get_weights())
                     print(Color.INFO + f'bn.shape: {BN.shape}' + Color.RESET)
-                    print(f'bn: {BN}')
-
-    def quantize_model(self, model_quantization):
-        """This function is used to quantize the float32 model into an int8 model,
-        Most of the function used here are written in quantize_model.py file.
-        """
-
-        train_featuresX, train_featuresY = self.load_data_from_file(tag='train')
-        total_features = train_featuresX['x'].astype(np.float32)
-
-        # Reshape total_features
-        cal_shape = int(total_features.size / (self.windows_size * 5))
-        total_features = total_features.reshape((cal_shape, 1, 1, self.windows_size, 5))
-        model_path = os.path.normpath(os.path.join(self.model_path, model_quantization))
-        header_name = os.path.normpath(
-            os.path.join(self.include_path, f'quantized_{model_quantization[:-10]}.h')
-        )
-
-        # TODO: 20230501 fixing bug, a few of the training data will result in the following errors
-        # Try to solve: zeroPoint = int(zeroPoint) # ValueError: cannot convert float NaN to integer
-        # Remove the non-compliant data from the total features
-        data_removed = [
-            1935,
-            2861,
-            3031,
-            3052,
-            5590,
-            9023,
-            9032,
-            13615,
-            13626,
-            13672,
-            13673,
-            13674,
-        ]
-        total_features = np.delete(total_features, data_removed, axis=0)
-        print(f'Total_features.shape: {total_features.shape}')
-
-        S1, Z1, S4, Z4 = quantize_model.get_layer_factor(
-            window_size=self.windows_size,
-            model_path=model_path,
-            total_features=total_features,
-        )
-
-        quantize_model.make_header(
-            window_size=self.windows_size,
-            S1=S1,
-            Z1=Z1,
-            S4=S4,
-            Z4=Z4,
-            model_path=model_path,
-            header_name=header_name,
-        )
-
-        # Save quantized model as quantized_model_20230426.h
-        quantize_model_name = f'quantized_{model_quantization[:-10]}.h'
-
-        return quantize_model_name
-
-    def quantize_input(self, single_idx, write_all=False):
-        """This function is used to quantize input data into an int8 datatype,
-        quantize_signals_windows function is written in quantize_input.py file.
-
-        Args:
-            single_idx: if you only want to write single test data to an input hfile, for debugging used
-            write_all: if you want to write all test data to hfile, turn it to True
-        """
-
-        # include_header/gesture_input/...
-        input_hfile_dir = os.path.join(self.include_path, 'gesture_input')
-        check_directories(input_hfile_dir)
-
-        if write_all:
-            file_start, file_end = 0, 300
-        else:
-            file_start, file_end = single_idx, single_idx + 1
-
-        for idx in range(file_start, file_end):
-            """Each piece of txt test data belongs to an individual index"""
-
-            my_test_data = test_preprocess(windows_size=self.windows_size, index=idx)
-            data, answer = my_test_data['x'], my_test_data['gesture_class']
-            windows = self.make_sliding_windows(data)
-
-            input_hfile_name = f'quantized_input_{idx}.h'
-            input_hfile_name = os.path.join(input_hfile_dir, input_hfile_name)
-            quantize_signals_windows(windows, answer, header_name=input_hfile_name)
-
-        return input_hfile_dir
+                    print(f'bn: {BN}')    
 
 if __name__ == "__main__":
     pass

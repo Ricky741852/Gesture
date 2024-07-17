@@ -80,7 +80,6 @@ class serialUSB:
             while not self.isReceiving:
                 print("no data ")
                 time.sleep(0.5)
-
     
     def getSerialData(self):
         """
@@ -116,11 +115,11 @@ class serialUSB:
                 # if check == 'e':
                 #     for i in range(self.numSensorGroups):
                 #         raw = self.serialConnection.read(2)
-                #         value = int.from_bytes(raw, byteorder='little', signed=True) * -1  # 這個動作是為了將手指平放時的數值設為 0
+                #         value = int.from_bytes(raw, byteorder='little', signed=True)  # 這個動作是為了將手指平放時的數值設為 0
                 #         self.rawData[i] = value
                 #         self.data[i].append(value)
                 #     self.isReceiving = True
-                    # print(self.rawData)
+                #     print(self.rawData)
 
                 # 讀取1個byte經校準後的數據
                 check = self.serialConnection.read().decode("ISO-8859-1")
@@ -131,7 +130,7 @@ class serialUSB:
                         self.rawData[i] = value
                         self.data[i].append(value)
                     self.isReceiving = True
-                #     # print(self.rawData)
+                    print(self.rawData)
 
             except IOError as exc:
                 self._connect()

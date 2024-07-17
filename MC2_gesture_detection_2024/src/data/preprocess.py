@@ -5,12 +5,12 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import matplotlib.pyplot as plt
 import torch
 from alive_progress import alive_bar
-from library import *
-from utility import GroundTruth
+from src.utils.library import *
+from src.utils.gaussian_groundtruth import GroundTruth
 
-SAVE_DIR = 'format_data'  # directory of formatted data
-TRAIN_DATA_DIR = 'trainData'  # directory of raw training data
-TEST_DATA_DIR = 'trainData'  # directory of raw testing data
+TRAIN_DATA_DIR = 'data/datasets/trainData'  # directory of raw training data
+TEST_DATA_DIR = 'data/datasets/testData'  # directory of raw testing data
+PROCESSSED_DATASETS_DIR = 'data/processed/datasets'  # directory of formatted data
 
 class GestureData():
     def __init__(self, train_data_path, test_data_path, save_path, windows_size, gesture_label=None):
@@ -130,45 +130,52 @@ class GestureData():
                 ground_truth[j + label[i]] = truth 
 
         return ground_truth
-
-    def generate_full_test_data(self, index):
+    
+    def generate_test_data(self, index):
         """
-        Generates full test data for a given index.
+        Generates test data for a given index.
 
         Args:
             index (int): The index of the test data.
 
         Returns:
-            dict: A dictionary containing the following keys:
-                - "x": The normalized raw data.
-                - "raw_data": The raw data.
-                - "label": The gesture label.
-                - "ground_truth": The ground truth data.
-                - "gesture_class": The gesture class.
-                - "accomplish_path": The path of the test data file.
+            dict: A dictionary containing the generated test data, including the input data, gesture class, and file path.
         """
         if not self.accomplish_path:
             self._get_file(self.test_data_path)
         raw_data = self._get_raw_data_from_file(self.accomplish_path[index][0])
 
-        print(self.accomplish_path[index][0])
+        data_path = self.accomplish_path[index][0]
+        print('data_path:', data_path)
+        gesture_class = self.accomplish_path[index][1]
 
         data_len = len(raw_data)
         if data_len < self.windows_size:
             print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
 
-        label = self._find_gesture_label(raw_data)
-        ground_truth = self._generate_ground_truth(raw_data, label)
+        middle = self.windows_size
 
-        gesture_class = self.accomplish_path[index][1]
-        x = np.array(raw_data) / 360
+        if gesture_class != '0':
+            # 非背景手勢才有ground_truth
+            label = self._find_gesture_label(raw_data)
+            ground_truth = self._generate_ground_truth(raw_data, label)
+
+            # 找出手勢中心點
+            middle = ground_truth.index(1)
+
+        np_raw_data = np.array(raw_data)
+
+        if middle < self.windows_size:
+            np_raw_data = np.insert(np_raw_data, 0, np.zeros((self.windows_size - middle, len(raw_data[0]))), axis=0)
+            middle = self.windows_size
+
+        destinition_window_data = np_raw_data[middle - self.windows_size:middle]
+            
+        x = destinition_window_data / 360
         ret = {
             "x": x,
-            "raw_data": raw_data,
-            "label": label,
-            "ground_truth": ground_truth,
-            "gesture_class": gesture_class,
-            "accomplish_path": self.accomplish_path[index][0]
+            "accomplish_path": data_path,
+            "gesture_class": gesture_class
         }
 
         return ret
@@ -188,13 +195,11 @@ class GestureData():
             self._get_file(self.train_data_path)
         elif tag == 'test':
             self._get_file(self.test_data_path)
-        # else:
-        #     self._get_file(self.other_data_path)
         x = list()
         x_label = list()
         x_path = list()
         y = list()
-        data_classes = self.data_classes    # ['1', '2', '3', '4', '5', '6']
+        data_classes = self.data_classes    # ['0', '1', '2', '3']
         data_classes_total = self.data_classes_total
 
         test_count = 0
@@ -204,11 +209,11 @@ class GestureData():
             for j, path in enumerate(self.accomplish_path):
 
                 # get file data
-                raw_data = self._get_raw_data_from_file(path[0])
-                raw_data_class = path[1] # '1', '2', '3', '4', '5', '6'
+                raw_data = self._get_raw_data_from_file(path[0])    # path: 'train1&2_test2/testData2/0/02_2019-01-11-07-51-08_C.Y_Chen.txt'
+                raw_data_class = path[1] # '0', '1', '2', '3'
 
                 # multi class
-                data_classes_index = data_classes.index(raw_data_class) # 取得raw_data_class在data_classes的index 0,1,2,3,4,5
+                data_classes_index = data_classes.index(raw_data_class) # 取得raw_data_class在data_classes的index 0, 1, 2, 3
 
                 label = self._find_gesture_label(raw_data)
                 
@@ -219,16 +224,19 @@ class GestureData():
                     print(Color.WARN + f"file data {path} total line smaller than {self.windows_size}" + Color.RESET)
                     continue
 
-                # 若是背景種類，因為沒有起始點和終點，所以ground_truth直接設為1
-                ground_truth = self._generate_ground_truth(raw_data, label) if data_classes_index != 5 else [1] * data_len
+                if data_classes_index != 0:
+                    if label[0] < self.windows_size:
+                        raw_data = np.insert(raw_data, 0, np.zeros((self.windows_size - label[0], len(raw_data[0])), dtype=int), axis=0)
+                        label[1] = label[1] + self.windows_size - label[0]
+                        label[0] = self.windows_size
 
+                # 若是背景種類，因為沒有起始點和終點，所以ground_truth直接設為1
+                ground_truth = self._generate_ground_truth(raw_data, label) if data_classes_index != 0 else [1] * data_len
+                
                 # split data by slide windows
                 for i in range(data_len - self.windows_size + 1):
                     window_data = raw_data[i:i + self.windows_size]
                     window_ground_truth = ground_truth[i + self.windows_size - 1]
-                    # remove by Ricky 2024/03/06    不完整手勢一樣要列入訓練
-                    # if max(split_ground_truth) != 1:
-                    #     split_ground_truth = [0] * self.windows_size
 
                     x.append(np.array(window_data) / 360)
                     x_label.append(raw_data_class)
@@ -238,8 +246,8 @@ class GestureData():
                     all_classes_y[data_classes_index] = window_ground_truth
 
                     # 背景手勢的分數為 1 - 真實手勢的分數
-                    if data_classes_index != 5:
-                        all_classes_y[5] = 1 - window_ground_truth
+                    if data_classes_index != 0:
+                        all_classes_y[0] = 1 - window_ground_truth
 
                     test_count += 1
                     y.append(all_classes_y.T)
@@ -247,7 +255,7 @@ class GestureData():
 
         # Format raw data to training data
         self.x = {"x": np.array(x), "path": x_path, "label": x_label}
-        self.y = {"hm": np.array(y)}
+        self.y = {"y": np.array(y)}
         print(Color.MSG + f'gesture_data.x: {self.x.keys()}' + Color.RESET)  # dict_keys(['x', 'path', 'label'])
         print(Color.MSG + f'gesture_data.y: {self.y.keys()}' + Color.RESET)  # dict_keys(['y'])
         print(Color.OK + f'Successfully formatted original raw {tag} data!' + Color.RESET)
@@ -259,7 +267,7 @@ class GestureData():
 
 def data_preprocess(windows_size):
     """Pre-process and save all data to format_data/ as pt file"""
-    gesture_data = GestureData(TRAIN_DATA_DIR, TEST_DATA_DIR, SAVE_DIR, windows_size=windows_size)
+    gesture_data = GestureData(TRAIN_DATA_DIR, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, windows_size=windows_size)
 
     # Generate training data, testing data
     gesture_data.generate_data(tag='train')
@@ -269,9 +277,6 @@ def test_preprocess(windows_size, index):
     """For getting full test gesture data, each piece of data is made from a complete txt file"""
 
     # Get full test data
-    gesture_data = GestureData(None, TEST_DATA_DIR, SAVE_DIR, windows_size=windows_size)
-    test_data_list = gesture_data.generate_full_test_data(index=index)
-    return test_data_list
-
-if __name__ == "__main__":
-    pass
+    gesture_data = GestureData(None, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, windows_size=windows_size)
+    test_data = gesture_data.generate_test_data(index=index)
+    return test_data

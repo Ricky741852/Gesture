@@ -3,20 +3,6 @@ import numpy as np
 import scipy.stats
 import scipy.integrate
 
-
-def cal_IoU(gTrue, gPred):
-    # print(gTrue, gPred)
-    if gPred[1] < gTrue[0] or gPred[0] > gTrue[1]:
-        IoU = 0
-        return IoU
-
-    union = max(gTrue[1], gPred[1]) - min(gTrue[0], gPred[0])
-    overlap = min(gTrue[1], gPred[1]) - max(gTrue[0], gPred[0])
-
-    IOU = overlap / union
-    return round(IOU, 2)
-
-
 class GroundTruth:
     def __init__(self, data_len, Sigma):
         self.data_len = data_len# 對應主程式中的L    
@@ -48,7 +34,7 @@ class GroundTruth:
         return cdf
 
     def generate_ground_truth(self):
-        """Generate  gaussian ground_truth"""
+        """Generate gaussian ground_truth"""
 
         # truth = self._cdf_truth()
         truth = self._pdf_truth(self.Sigma)
@@ -61,5 +47,5 @@ class GroundTruth:
 
 if __name__ == "__main__":
     L = 50
-    G = GroundTruth(L, L / 6)
+    G = GroundTruth(L, L / 4)
     G.plot()

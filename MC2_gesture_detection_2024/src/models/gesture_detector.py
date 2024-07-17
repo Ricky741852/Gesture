@@ -1,8 +1,12 @@
 from tensorflow.keras.models import load_model
+import os
 import numpy as np
 
-class Gesture_Detection():
-    def __init__(self,model_name,windows_size=100):
+class GestureDetector():
+    """
+    載入預測模型
+    """
+    def __init__(self,model_name,window_size=50):
         """
         Initialize the Gesture_Detection class.
 
@@ -13,10 +17,13 @@ class Gesture_Detection():
         Returns:
         None
         """
-        self.windows_size = windows_size
-        self.model = load_model(f"./saved_model_h5/{model_name}.h5")
+        self.window_size = window_size
+        model_path = os.path.join(os.path.dirname(__file__), '..', '..', 'output', 'models', f"{model_name}.h5")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file does not exist at: {model_path}")
+        self.model = load_model(model_path)
 
-    def predict(self,windows):
+    def predict(self, windows):
         """
         Perform gesture prediction on the given windows.
 
@@ -47,11 +54,11 @@ class Gesture_Detection():
 
         # Generate sliding windows
         windows = []
-        for i in range(0, len(data) - self.windows_size + 1, stride):
-            window = data[i: i + self.windows_size]
+        for i in range(0, len(data) - self.window_size + 1, stride):
+            window = data[i: i + self.window_size]
             windows.append(window)
         windows = np.array(windows)
-        print(f'Window shape: {windows.shape}')
+        # print(f'Window shape: {windows.shape}')
         return windows
     
     

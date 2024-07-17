@@ -1,11 +1,13 @@
 from os import listdir
-from utility import GroundTruth
+from src.utils.gaussian_groundtruth import GroundTruth
 
-class Gesture_Data():
-    def __init__(self,path,windows_size=128,gesture_label=[-1000,-1000,-1000,-1000,-1000]):
+class GestureDataHandler():
+    """
+    產生測試資料
+    """
+    def __init__(self, path, windows_size=50, gesture_label=[-1000,-1000,-1000,-1000,-1000]):
         self.path = path
         self.accomplish_path = None # file path of every data
-        self.gesture_class_list = list()  # classification list
         self.windows_size = windows_size
         self.gesture_label = gesture_label
         self.gesture_raw_data = list()
@@ -13,20 +15,19 @@ class Gesture_Data():
     def _get_file(self):
         """
         Retrieves the file paths and gesture class labels from the specified directory.
+        
+        從指定的目錄中取得raw data和其路徑
 
         Returns:
             None
         """
-        gesture_class_list = set()
         accomplish_path = []
         path = self.path
         for subdir in sorted(listdir(path)):
             for i in sorted(listdir(path + '/' + subdir)):
                 accomplish_path.append((path + '/' + subdir + '/' + i, subdir))
-                gesture_class_list.add(subdir)
                 # 格式如：('train1&2_test2/testData2/0/02_2019-01-11-07-51-08_C.Y_Chen.txt', '0')
         self.accomplish_path = accomplish_path        
-        self.gesture_class_list = sorted(list(gesture_class_list))
 
     def _get_raw_data_from_file(self, path):
         """
@@ -111,7 +112,6 @@ class Gesture_Data():
                 - raw_data (list): The raw data obtained from the file.
                 - label (str): The gesture label.
                 - grund_truth (list): The ground truth data generated from the raw data.
-                - gesture_class_list (list): The list of available data classes.
                 - gesture_class (str): The name of the class for the given index.
 
         Raises:
@@ -126,10 +126,34 @@ class Gesture_Data():
             print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
 
         gesture_label = self._find_gesture_label(raw_data)
-        print(gesture_label)
         grund_truth = self._generate_ground_truth(raw_data, gesture_label)
-
-        gesture_class_list = self.gesture_class_list
+        raw_data_path = self.accomplish_path[index][0]
         gesture_class = self.accomplish_path[index][1]
 
-        return raw_data, gesture_label, grund_truth, gesture_class_list, gesture_class
+        return raw_data, gesture_label, grund_truth, gesture_class, raw_data_path
+    
+    def generate_simulate_data(self, index):
+        """
+        Generate test data for a given index.
+
+        Args:
+            index (int): The index of the test data.
+
+        Returns:
+            tuple: A tuple containing the following elements:
+                - raw_data (list): The raw data obtained from the file.
+
+        Raises:
+            None
+
+        """
+        if not self.accomplish_path:
+            self._get_file()
+        raw_data = self._get_raw_data_from_file(self.accomplish_path[index][0])
+        data_len = len(raw_data)
+        if data_len < self.windows_size:
+            print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
+
+        raw_data_path = self.accomplish_path[index][0]
+
+        return raw_data, raw_data_path
