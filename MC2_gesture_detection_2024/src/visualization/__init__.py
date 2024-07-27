@@ -22,6 +22,7 @@ from .animation_slidingwindow import Ani_SlidingWindow
 from .image_rawdata import Image_RawData
 from .image_groundtruth import Image_GroundTruth
 from .image_sample import Image_Sample
+from .image_slidingwindow import Image_SlidingWindow
 
 class Visualization:
     def __init__(self, model_name, datasets_dir, windows_size=50):
@@ -54,6 +55,7 @@ class Visualization:
                 G = GestureDataHandler(self.datasets_dir, windows_size=self.windows_size) 
                 ani = Ani_SlidingWindow(index, self.model_name, G, windows_size=self.windows_size)
                 if ani.generate_data():
+                    ani.generate_static_plot()
                     ani.start_animation()
             # if the visualization type is not recognized, print an error message and raise an exception
             else:
@@ -88,6 +90,10 @@ class Visualization:
                     ani.generate_static_plot()
             elif visualization_type == "groundtruth":
                 ani = Image_GroundTruth(index, self.model_name, G, windows_size=self.windows_size)
+                if ani.generate_data():
+                    ani.generate_static_plot()
+            elif visualization_type == "slidingwindow":
+                ani = Image_SlidingWindow(index, self.model_name, G, windows_size=self.windows_size)
                 if ani.generate_data():
                     ani.generate_static_plot()
             # if the visualization type is not recognized, print an error message and raise an exception

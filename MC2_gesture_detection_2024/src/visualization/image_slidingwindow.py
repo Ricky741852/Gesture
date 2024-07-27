@@ -12,16 +12,15 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
 
-class Ani_SlidingWindow():
+class Image_SlidingWindow():
     def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
         self.window_size = windows_size
         self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
 
         self.component_len = self.window_size - self.gesture_label[0]
-
+        
         # Raw data plottings
         self.raw_class_list = ['1', '2', '3', '4', '5']
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
@@ -43,7 +42,7 @@ class Ani_SlidingWindow():
         # 原始數據的 Sliding Window
         self.rect = Rectangle((0, -105), self.window_size, 210, facecolor='green', alpha=0.3)
         self.ax1.add_patch(self.rect)
-
+        
         # 畫出Ground Truth數據的線條
         self.lines_truth = self.ax2.plot([], [], lw=2, label=f'Ground Truth')[0]
         self.ax2.set_xlim(0, len(self.raw_data) + self.component_len)
@@ -54,7 +53,7 @@ class Ani_SlidingWindow():
         self.line_truth_y = self.ax2.axhline(y=0.0, color='blue', linestyle='--', lw=2)
 
         self.score = self.ax2.text(.5, .5, '', fontsize=15)
-
+        
         # 初始空的視窗
         x = np.arange(0, len(self.raw_data) + self.component_len)
         y = np.zeros(len(x))
@@ -68,7 +67,7 @@ class Ani_SlidingWindow():
 
         if len(self.raw_data) < self.window_size:
             print("Data less than {}".format(self.window_size))
-            return False        
+            return False
         
         self.np_data = np.array(self.raw_data)
         # 最前方補上49個0，以產生第一筆raw data的window，進而對應到 Ground Truth 的第一組分數
@@ -79,8 +78,11 @@ class Ani_SlidingWindow():
         self.ground_truth = np.insert(self.ground_truth, 0, np.zeros((self.component_len)), axis=0)
 
         return True
-    
+
     def generate_static_plot(self):
+        
+        frame = 15
+
         # 處理原始數據
         raw_data_T = self.np_data.T
         for i in range(len(self.raw_class_list)):
@@ -89,29 +91,15 @@ class Ani_SlidingWindow():
         # 處理 Ground Truth 數據
         self.lines_truth.set_ydata(self.ground_truth)
 
-        return True
-
-    def animate(self, frame):
         self.rect.xy = (frame, -105)
         self.line_truth_x.set_xdata(self.window_size + frame)
         self.line_truth_y.set_ydata(self.lines_truth.get_ydata()[self.window_size + frame])
         self.score.set_text(f'Score: {self.lines_truth.get_ydata()[self.window_size + frame]:.2f}')
-    
-        return self.rect, self.line_truth_x, self.line_truth_y, self.score
 
-    def start_animation(self):
-        # 建立動畫，設定等待100個sample的時間
-        animation = FuncAnimation(self.fig, self.animate, frames=len(self.raw_data) + self.component_len - self.window_size, interval=75, repeat=True)
-
-        # 經過測試，若顯示動畫後才儲存，會導致程式直接關閉，沒辦法連續執行
-        # 所以若無儲存動畫需求，可以直接註解以提升效能
-        
-        # 儲存動畫
-        output_dir = 'output/animations/slidingwindow'
+        # 儲存靜態圖片
+        output_dir = 'output/images/slidingwindow'
         os.makedirs(output_dir, exist_ok=True)
         raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
-        animation.save(os.path.join(output_dir, f'animation_slidingwindow_{raw_data_filename}.gif'), writer='pillow', fps=15)
-        
-        # 顯示動畫
-        # plt.rcParams['animation.html'] = 'jshtml'
+
+        plt.savefig(os.path.join(output_dir, f'image_slidingwindow_{raw_data_filename}_window_{self.window_size + frame}.png'))
         plt.show()
