@@ -12,9 +12,6 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-
-from ..models.gesture_detector import GestureDetector
-
 class Image_GroundTruth():
     def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
         self.window_size = windows_size
@@ -24,20 +21,32 @@ class Image_GroundTruth():
         self.raw_class_list = ['1', '2', '3', '4', '5']
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
 
+        # Gesture data plottings
+        self.gesture_class_list = ['0', '1', '2', '3']
+        self.gesture_colors = ["purple", "orange", "green", "red"]
+
+        # 每個分類的真實分數
+        self.ground_truths = [0 for _ in range(len(self.gesture_class_list))]
+
         # 初始化畫布和軸
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 15))
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 10))
+
+        # 為每個子圖設置 y 軸標籤
+        self.ax1.set_ylabel('Raw Data', fontsize=14)
+        self.ax2.set_ylabel('Ground Truth', fontsize=14)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {i+1}', color=self.raw_colors[i])[0] 
                           for i in range(5)]
         self.ax1.set_xlim(0, len(self.raw_data))
-        self.ax1.set_ylim(-110, 110)  # 假設 y 軸範圍在 -200 到 400 之間
+        self.ax1.set_ylim(-110, 110)
         self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
 
         # 畫出Ground Truth數據的線條
-        self.lines_truth = self.ax2.plot([], [], lw=2, label=f'Ground Truth')[0]
+        self.lines_truth = [self.ax2.plot([], [], lw=2, label=f'Gesture {class_num}', color=color)[0]
+                              for class_num, color in zip(self.gesture_class_list, self.gesture_colors)]
         self.ax2.set_xlim(0, len(self.raw_data))
-        self.ax2.set_ylim(0, 1)
+        self.ax2.set_ylim(-0.05, 1.05)
         self.ax2.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
 
         # 初始空的視窗
@@ -47,7 +56,8 @@ class Image_GroundTruth():
         for line in self.lines_raw:
             line.set_data(x, y)
 
-        self.lines_truth.set_data(x, y)
+        for line in self.lines_truth:
+            line.set_data(x, y)
         
     def generate_data(self):
 
@@ -56,6 +66,10 @@ class Image_GroundTruth():
             return False
         
         self.np_data = np.array(self.raw_data)
+
+        self.ground_truths[self.gesture_class_list.index(self.gesture_class)] = self.ground_truth
+        # 將背景手勢的分數放入對應的分類中
+        self.ground_truths[0] = [1 - gt for gt in self.ground_truth]
 
         return True
 
@@ -66,7 +80,8 @@ class Image_GroundTruth():
             self.lines_raw[i].set_ydata(raw_data_T[i])
 
         # 處理 Ground Truth 數據
-        self.lines_truth.set_ydata(self.ground_truth)
+        for i in range(len(self.gesture_class_list)):
+            self.lines_truth[i].set_ydata(self.ground_truths[i])
 
         # 儲存靜態圖片
         output_dir = 'output/images/groundtruth'
