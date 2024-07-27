@@ -25,13 +25,16 @@ class Image_RawData():
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
 
         # 初始化畫布和軸
-        self.fig, (self.ax1) = plt.subplots(1, 1, figsize=(15, 15))
+        self.fig, (self.ax1) = plt.subplots(1, 1, figsize=(15, 5))
+
+        # 為每個子圖設置 y 軸標籤
+        self.ax1.set_ylabel('Raw Data', fontsize=14)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {i+1}', color=self.raw_colors[i])[0] 
                           for i in range(5)]
         self.ax1.set_xlim(0, len(self.raw_data))
-        self.ax1.set_ylim(-110, 110)  # 假設 y 軸範圍在 -200 到 400 之間
+        self.ax1.set_ylim(-110, 110)
         self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
 
         # 初始空的視窗

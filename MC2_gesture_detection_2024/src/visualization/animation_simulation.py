@@ -44,20 +44,24 @@ class Ani_Simulation():
         self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
         # 初始化畫布和軸
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 15))
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 10))
+
+        # 為每個子圖設置 y 軸標籤
+        self.ax1.set_ylabel('Raw Data', fontsize=14)
+        self.ax2.set_ylabel('Predicted Data', fontsize=14)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {raw_num}', color=color)[0] 
                           for raw_num, color in zip(self.raw_class_list, self.raw_colors)]
         self.ax1.set_xlim(0, self.window_size)
-        self.ax1.set_ylim(-110, 110)  # 假設 y 軸範圍在 -200 到 400 之間
+        self.ax1.set_ylim(-110, 110)
         self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
 
         # 畫出預測數據的線條
         self.lines_predict = [self.ax2.plot([], [], lw=2, label=f'Gesture {class_num}', color=color)[0]
                               for class_num, color in zip(self.gesture_class_list, self.gesture_colors)]
         self.ax2.set_xlim(0, self.window_size)
-        self.ax2.set_ylim(0, 1)  # 假設 y 軸範圍在 0 到 1 之間
+        self.ax2.set_ylim(-0.05, 1.05)
         self.ax2.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
 
         self.predict_class = self.ax2.text(.5, .5, '', fontsize=15)
@@ -79,10 +83,13 @@ class Ani_Simulation():
             return False
         
         self.np_data = np.array(self.raw_data)
+        self.np_data = np.insert(self.np_data, 0, np.zeros((self.window_size, len(self.raw_class_list))), axis=0)
+
         # 最前方補上49個0，以產生第一筆raw data的window，進而預測第一個分數
-        data_with_zeros_front = np.insert(self.np_data, 0, np.zeros((self.window_size -1, len(self.raw_class_list))), axis=0)
+        data_with_zeros_front = np.insert(self.np_data, 0, np.zeros((self.window_size - 1, len(self.raw_class_list))), axis=0)
 
         data = data_with_zeros_front/360
+
         self.windows = self.Gesture_model.make_sliding_windows(data)
         self.predict_data = self.Gesture_model.predict(self.windows)
 
@@ -91,7 +98,7 @@ class Ani_Simulation():
     def animate(self, frame):
         window_size = self.window_size
         current_class = self.current_class
-        if frame + window_size <= len(self.raw_data):
+        if frame <= len(self.raw_data):
             # 處理原始數據
             raw_data_T = self.np_data[frame:frame+window_size].T
             for i in range(len(self.raw_class_list)):
@@ -131,18 +138,20 @@ class Ani_Simulation():
 
     def start_animation(self):
         # 建立動畫，設定等待100個sample的時間
-        animation = FuncAnimation(self.fig, self.animate, frames=len(self.raw_data) - self.window_size + 1, interval=50, repeat=False)
+        animation = FuncAnimation(self.fig, self.animate, frames=(len(self.raw_data) + self.window_size), interval=50, repeat=False)
+
+        # 儲存動畫
+        output_dir = 'output/animations/simulation'
+        os.makedirs(output_dir, exist_ok=True)
+        raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
+        animation.save(os.path.join(output_dir, f'animation_simulation_{raw_data_filename}.gif'), writer='pillow', fps=20)
+        
+        # 因為儲存時就會先計算一次，所以在顯示之前先計算
+        print(self.editdistance())
 
         # 顯示動畫
         plt.rcParams['animation.html'] = 'jshtml'
         plt.show()
-        print(self.editdistance())
-
-        # 儲存動畫
-        # output_dir = 'output/animations/simulation'
-        # os.makedirs(output_dir, exist_ok=True)
-        # raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
-        # animation.save(os.path.join(output_dir, f'animation_simulation_{raw_data_filename}.gif'), writer='pillow', fps=20)
 
     def editdistance(self):
         print(self.input_string, self.predict_string)
