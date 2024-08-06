@@ -2,20 +2,23 @@ import os  # 目錄生成與檔案控制
 import time  # 抓取日期與時間
 import msvcrt  # 按鍵監聽 (windows)
 from .serial_usb import serialUSB
+import configparser
 
 ###################### ######################
 ###      設定檔案路徑、使用者以及手勢       ###
 ############################################ 
 
-# PATH = 'data/datasets/trainData'  # 接收檔案儲存路徑
-PATH = 'data/datasets/testData'  # 接收檔案儲存路徑 
-# PATH = 'data/datasets/simulateData'  # 接收檔案儲存路徑
-USER = "Debbie"  # 資料蒐集者
-DATE = time.strftime('%Y-%m-%d', time.localtime(time.time()))  # 當天日期
-GESTURE = "2"  # 手勢動作
-SENSOR_NUM = 5
-# SIMULATE_STRING = "9_3313"
+config = configparser.ConfigParser()
+config.read('config.ini')
+datasets = config.get('ReceiveSettings', 'datasets')
+collecter = config['ReceiveSettings'].get('collecter')
+gesture = config['ReceiveSettings'].get('gesture')
 
+PATH = F'data/datasets/{datasets}'  # 接收檔案儲存路徑 
+USER = collecter  # 資料蒐集者
+DATE = time.strftime('%Y-%m-%d', time.localtime(time.time()))  # 當天日期
+GESTURE = gesture  # 手勢動作
+SENSOR_NUM = 5
 
 # windows : 空白鍵按鍵監聽
 # linux : q按鍵監聽
@@ -33,8 +36,13 @@ def _kbhit():
     return msvcrt.kbhit()
 
 def record():
-    folder = f"{PATH}/{GESTURE}"  # Sample data
-    # folder = f"{PATH}/{SIMULATE_STRING}"    # Simulate data
+    folder = PATH
+    if datasets == 'simulateData':  # Simulate data
+        simulate_string = input("Please input the simulate string: ")   # 9_1333 (第幾個_手勢順序)
+        folder = f"{folder}/{simulate_string}"
+    else:
+        folder = f"{PATH}/{GESTURE}"  # Sample data
+
     if not os.path.exists(folder):
         os.makedirs(folder)  # 產生檔案儲存路徑
 
@@ -63,8 +71,10 @@ def record():
             print(f"Start recording data {data_total}")
 
             dateTime = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))  # deTime = 當前詳細時間
-            with open(f"{folder}/{GESTURE}_{dateTime}_{USER}.txt", "w") as sensor_File:
-            # with open(f"{folder}/{SIMULATE_STRING}.txt", "w") as sensor_File:
+
+            sensorFileName = f"{folder}/{GESTURE}_{dateTime}_{USER}.txt" if datasets != 'simulateData' else f"{folder}/{simulate_string}_{USER}.txt"
+
+            with open(f"{sensorFileName}.txt", "w") as sensor_File:
                 # 開始紀錄回傳的感測值
                 serialData.serialConnection.reset_input_buffer()
                 data_buffer = []    #用來暫存每組資料的緩衝區
