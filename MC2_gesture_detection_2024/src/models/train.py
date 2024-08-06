@@ -282,7 +282,7 @@ class GestureTensorflow:
     def plot_confusion_matrix(self, y_true, y_pred):
         """Calculate confusion matrix, precision and recall"""
 
-        cm_dir = 'output/confusion_matrix'
+        cm_dir = 'output/confusion_matrices'
         check_directories(cm_dir)
 
         # Generate classification report of precision and recall
