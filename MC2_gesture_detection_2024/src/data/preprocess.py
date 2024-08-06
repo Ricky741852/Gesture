@@ -224,20 +224,23 @@ class GestureData():
                     print(Color.WARN + f"file data {path} total line smaller than {self.windows_size}" + Color.RESET)
                     continue
 
+                # 若是背景種類，因為沒有起始點和終點，所以ground_truth直接設為1
+                ground_truth = [1] * data_len
+
+                # 若非背景種類，則依照Label位置調整長度，並產生ground_truth
                 if data_classes_index != 0:
                     if label[0] < self.windows_size:
                         raw_data = np.insert(raw_data, 0, np.zeros((self.windows_size - label[0], len(raw_data[0])), dtype=int), axis=0)
                         label[1] = label[1] + self.windows_size - label[0]
                         label[0] = self.windows_size
 
-                # 若是背景種類，因為沒有起始點和終點，所以ground_truth直接設為1
-                ground_truth = self._generate_ground_truth(raw_data, label) if data_classes_index != 0 else [1] * data_len
+                    ground_truth = self._generate_ground_truth(raw_data, label)
+                    data_len = len(raw_data) # 經過已經調整後的資料長度
                 
                 # split data by slide windows
                 for i in range(data_len - self.windows_size + 1):
-                    window_data = raw_data[i:i + self.windows_size]
-                    window_ground_truth = ground_truth[i + self.windows_size - 1]
-
+                    window_data = raw_data[i:i + self.windows_size] # i = 0: => 0~49, 1: => 1~50, 2: => 2~51, ...
+                    window_ground_truth = ground_truth[i + self.windows_size - 1]   # i = 0: => 49, 1: => 50, 2: => 51, ...
                     x.append(np.array(window_data) / 360)
                     x_label.append(raw_data_class)
                     x_path.append(path)
