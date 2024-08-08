@@ -72,7 +72,7 @@ def record():
 
             dateTime = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))  # deTime = 當前詳細時間
 
-            sensorFileName = f"{folder}/{GESTURE}_{dateTime}_{USER}.txt" if datasets != 'simulateData' else f"{folder}/{simulate_string}_{USER}.txt"
+            sensorFileName = f"{folder}/{GESTURE}_{dateTime}_{USER}" if datasets != 'simulateData' else f"{folder}/{simulate_string}_{USER}"
 
             with open(f"{sensorFileName}.txt", "w") as sensor_File:
                 # 開始紀錄回傳的感測值
