@@ -28,14 +28,6 @@ union F_DataSplit  // Flex Sensor_Data Split
 
 ADS1015 pinkySensor;
 ADS1015 indexSensor;
-//Calibration Array
-uint16_t handCalibration[4][2] = {
-  //{low, hi} switch these to reverse which end is 1 and which is 0
-  {797, 893},  //index
-  {753, 901},  //middle
-  {850, 912},  //ring
-  {706, 891}   //pinky
-};
 
 void setup() {
   Serial.begin(115200);
@@ -76,17 +68,6 @@ void setup() {
   {
      Serial.println("Index not found. Check wiring.");
      while (1);
-  }
-
-  //Set the calibration values for the hand.
-  for (int channel; channel < 2; channel++)
-  {
-    for (int hiLo = 0; hiLo < 2; hiLo++)
-    {
-      indexSensor.setCalibration(channel, hiLo, handCalibration[channel][hiLo]);
-      pinkySensor.setCalibration(channel, hiLo, handCalibration[channel + 2][hiLo]);
-    }
-    Serial.println();
   }
 
   ads_run(true);
@@ -146,18 +127,6 @@ void Bluetooth_Transfer() {
   for (int i = 0; i < digital_SENSOR_NUM ; i++) {
     Serial.write(F_Data[i].byte_data, 2);
   }
-}
-
-int calibration(int analogData, int finger)
-{
-  int low = 0, high = 100;
-  int fingerData = map(analogData, handCalibration[finger][0], handCalibration[finger][1], low, high);
-  fingerData = ((fingerData) < (low) ? (low) : ((fingerData) > (high) ? (high) : (fingerData)));
-//  if((F_Data[finger + 1].full - fingerData) > 25)
-//  {
-//    return F_Data[finger + 1].full - 10 ;
-//  }
-  return fingerData;
 }
 
 /* 

@@ -221,3 +221,4 @@ yarn-error.log*
 */output/models/*
 
 *.docx
+/MC2_gesture_detection_2024/.vs
