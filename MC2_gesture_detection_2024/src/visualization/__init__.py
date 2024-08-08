@@ -13,7 +13,6 @@
 # This file is executed when the visualization module is imported.
 
 from ..utils.serial_usb import serialUSB
-from ..models.gesture_detector import GestureDetector
 from ..data.loaders import GestureDataHandler
 from .animation_realtime import Ani_Realtime
 from .animation_sample import Ani_Sample
@@ -47,8 +46,8 @@ class Visualization:
                     ani.start_animation()
             elif visualization_type == "simulation":
                 G = GestureDataHandler('data/datasets/simulateData', windows_size=self.windows_size) 
-                input_string = input("Enter the GESTURES: ")
-                ani = Ani_Simulation(index, self.model_name, G, input_string, windows_size=self.windows_size)
+                # input_string = input("Enter the GESTURES: ")
+                ani = Ani_Simulation(index, self.model_name, G, windows_size=self.windows_size)
                 if ani.generate_data():
                     ani.start_animation()
             elif visualization_type == "slidingwindow":
@@ -59,8 +58,8 @@ class Visualization:
                     ani.start_animation()
             # if the visualization type is not recognized, print an error message and raise an exception
             else:
-                print("Invalid visualization type. Please choose from 'realtime', 'sample', 'rawdata', or 'groundtruth'.")
-                raise ValueError("Invalid visualization type")       
+                print("Invalid animation type. Please choose from 'realtime', 'sample', 'simulation', or 'slidingwindow'.")
+                raise ValueError("Invalid animation type")       
 
     def image(self, visualization_type="sample"):
         """
@@ -81,25 +80,25 @@ class Visualization:
                 break
 
             if visualization_type == "sample":
-                ani = Image_Sample(index, self.model_name, G, windows_size=self.windows_size)
-                if ani.generate_data():
-                    ani.generate_static_plot()
+                img = Image_Sample(index, self.model_name, G, windows_size=self.windows_size)
+                if img.generate_data():
+                    img.generate_static_plot()
             elif visualization_type == "rawdata":
-                ani = Image_RawData(index, self.model_name, G, windows_size=self.windows_size)
-                if ani.generate_data():
-                    ani.generate_static_plot()
+                img = Image_RawData(index, self.model_name, G, windows_size=self.windows_size)
+                if img.generate_data():
+                    img.generate_static_plot()
             elif visualization_type == "groundtruth":
-                ani = Image_GroundTruth(index, self.model_name, G, windows_size=self.windows_size)
-                if ani.generate_data():
-                    ani.generate_static_plot()
+                img = Image_GroundTruth(index, self.model_name, G, windows_size=self.windows_size)
+                if img.generate_data():
+                    img.generate_static_plot()
             elif visualization_type == "slidingwindow":
-                ani = Image_SlidingWindow(index, self.model_name, G, windows_size=self.windows_size)
-                if ani.generate_data():
-                    ani.generate_static_plot()
+                img = Image_SlidingWindow(index, self.model_name, G, windows_size=self.windows_size)
+                if img.generate_data():
+                    img.generate_static_plot()
             # if the visualization type is not recognized, print an error message and raise an exception
             else:
-                print("Invalid visualization type. Please choose from 'sample', 'rawdata', or 'groundtruth'.")
-                raise ValueError("Invalid visualization type")        
+                print("Invalid image type. Please choose from 'sample', 'rawdata', 'groundtruth', or 'slidingwindow'.")
+                raise ValueError("Invalid image type")        
     
     def realtime(self):
         """

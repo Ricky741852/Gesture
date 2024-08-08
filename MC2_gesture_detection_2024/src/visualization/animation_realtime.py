@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -30,8 +31,16 @@ class Ani_Realtime():
         # 載入預測功能模組
         self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
-        # 初始化畫布和軸
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 15))
+        # 使用 GridSpec 來手動調整子圖布局
+        self.fig = plt.figure(figsize=(15, 10))
+        gs = GridSpec(2, 1, height_ratios=[1, 1])
+
+        self.ax1 = self.fig.add_subplot(gs[0, 0])
+        self.ax2 = self.fig.add_subplot(gs[1, 0])
+
+        # 為每個子圖設置 y 軸標籤
+        self.ax1.set_ylabel('Raw Data', fontsize=25)
+        self.ax2.set_ylabel('Predicted Data', fontsize=25)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {raw_num}', color=color)[0] 
@@ -39,14 +48,14 @@ class Ani_Realtime():
         self.ax1.set_xlim(0, self.window_size)
         self.ax1.set_ylim(-110, 110)  # 假設 y 軸範圍在 -110 到 110 之間
         # self.ax1.set_ylim(0, 1200)  # 假設 y 軸範圍在 0 到 1200 之間  # 若要畫的是未經Calibration的數據，則使用這行
-        self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax1.legend(loc='lower left', bbox_to_anchor=(1, 0.4), fontsize=20)
 
         # 畫出預測數據的線條
         self.lines_predict = [self.ax2.plot([], [], lw=2, label=f'Gesture {class_num}', color=color)[0]
                               for class_num, color in zip(self.gesture_class_list, self.gesture_colors)]
         self.ax2.set_xlim(0, self.window_size)
         self.ax2.set_ylim(0, 1)  # 假設 y 軸範圍在 0 到 1 之間
-        self.ax2.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax2.legend(loc='lower left', bbox_to_anchor=(1, 0.5), fontsize=20)
 
         # self.predict_class = self.ax2.text(.5, .5, '', fontsize=15)
 
@@ -59,6 +68,9 @@ class Ani_Realtime():
 
         for line in self.lines_predict:
             line.set_data(x, y)
+
+        # 調整子圖布局
+        plt.tight_layout(rect=[0, 0, 1, 1])
     
     def gen_predict_data(self, rawData):
         

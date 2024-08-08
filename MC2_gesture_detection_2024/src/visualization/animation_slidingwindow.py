@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from matplotlib.gridspec import GridSpec
+
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -26,19 +28,23 @@ class Ani_SlidingWindow():
         self.raw_class_list = ['1', '2', '3', '4', '5']
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
 
-        # 初始化畫布和軸
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 10))
+        # 使用 GridSpec 來手動調整子圖布局
+        self.fig = plt.figure(figsize=(15, 10))
+        gs = GridSpec(2, 1, height_ratios=[1, 1])
+
+        self.ax1 = self.fig.add_subplot(gs[0, 0])
+        self.ax2 = self.fig.add_subplot(gs[1, 0])
 
         # 為每個子圖設置 y 軸標籤
-        self.ax1.set_ylabel('Raw Data', fontsize=14)
-        self.ax2.set_ylabel('Ground Truth', fontsize=14)
+        self.ax1.set_ylabel('Raw Data', fontsize=25)
+        self.ax2.set_ylabel('Ground Truth', fontsize=25)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {i+1}', color=self.raw_colors[i])[0] 
                           for i in range(5)]
         self.ax1.set_xlim(0, len(self.raw_data) + self.component_len)
         self.ax1.set_ylim(-110, 110)
-        self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax1.legend(loc='lower left', bbox_to_anchor=(1, 0.4), fontsize=20)
 
         # 原始數據的 Sliding Window
         self.rect = Rectangle((0, -105), self.window_size, 210, facecolor='green', alpha=0.3)
@@ -48,7 +54,7 @@ class Ani_SlidingWindow():
         self.lines_truth = self.ax2.plot([], [], lw=2, label=f'Ground Truth')[0]
         self.ax2.set_xlim(0, len(self.raw_data) + self.component_len)
         self.ax2.set_ylim(-0.05, 1.05)
-        self.ax2.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax2.legend(loc='lower left', bbox_to_anchor=(1, 0.5), fontsize=20)
 
         self.line_truth_x = self.ax2.axvline(x=self.window_size, color='blue', linestyle='--', lw=2)
         self.line_truth_y = self.ax2.axhline(y=0.0, color='blue', linestyle='--', lw=2)
@@ -63,6 +69,9 @@ class Ani_SlidingWindow():
             line.set_data(x, y)
 
         self.lines_truth.set_data(x, y)
+
+        # 調整子圖布局
+        plt.tight_layout(rect=[0, 0, 1, 1])
         
     def generate_data(self):
 

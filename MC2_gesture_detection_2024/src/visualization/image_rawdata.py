@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from matplotlib.gridspec import GridSpec
+
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -24,18 +26,23 @@ class Image_RawData():
         self.raw_class_list = ['1', '2', '3', '4', '5']
         self.raw_colors = ["orange", "blue", "red", "brown", "green"]
 
-        # 初始化畫布和軸
-        self.fig, (self.ax1) = plt.subplots(1, 1, figsize=(15, 5))
+        # 使用 GridSpec 來手動調整子圖布局
+        self.fig = plt.figure(figsize=(15, 5))
+        gs = GridSpec(1, 1, height_ratios=[1])
+
+        self.ax1 = self.fig.add_subplot(gs[0, 0])
 
         # 為每個子圖設置 y 軸標籤
-        self.ax1.set_ylabel('Raw Data', fontsize=14)
+        self.ax1.set_ylabel('Raw Data', fontsize=25)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {i+1}', color=self.raw_colors[i])[0] 
                           for i in range(5)]
         self.ax1.set_xlim(0, len(self.raw_data))
         self.ax1.set_ylim(-110, 110)
-        self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+
+        # 放置圖例
+        self.ax1.legend(loc='lower left', bbox_to_anchor=(1, 0.4), fontsize=20)
 
         # 初始空的視窗
         x = np.arange(0, len(self.raw_data))
@@ -43,6 +50,9 @@ class Image_RawData():
         
         for line in self.lines_raw:
             line.set_data(x, y)
+
+        # 調整子圖布局
+        plt.tight_layout(rect=[0, 0, 1, 1])
         
     def generate_data(self):
 

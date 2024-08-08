@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import Levenshtein
 import os
+from matplotlib.gridspec import GridSpec
+
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -18,7 +20,7 @@ from collections import deque
 from src.models.gesture_detector import GestureDetector
 
 class Ani_Simulation():
-    def __init__(self, index, model_name, Gesture_Data_Model, input_string, windows_size=50):
+    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
         self.window_size = windows_size
         self.raw_data, self.raw_data_path = Gesture_Data_Model.generate_simulate_data(index)
 
@@ -38,33 +40,37 @@ class Ani_Simulation():
         self.current_class = 3
         self.last_scores = deque([3, 3, 3], maxlen=3)
 
-        self.input_string = input_string
+        self.input_string = str()
         self.predict_string = str()
 
         self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
-        # 初始化畫布和軸
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(15, 10))
+        # 使用 GridSpec 來手動調整子圖布局
+        self.fig = plt.figure(figsize=(15, 10))
+        gs = GridSpec(2, 1, height_ratios=[1, 1])
+
+        self.ax1 = self.fig.add_subplot(gs[0, 0])
+        self.ax2 = self.fig.add_subplot(gs[1, 0])
 
         # 為每個子圖設置 y 軸標籤
-        self.ax1.set_ylabel('Raw Data', fontsize=14)
-        self.ax2.set_ylabel('Predicted Data', fontsize=14)
+        self.ax1.set_ylabel('Raw Data', fontsize=25)
+        self.ax2.set_ylabel('Predicted Data', fontsize=25)
 
         # 畫出原始數據的線條
         self.lines_raw = [self.ax1.plot([], [], lw=2, label=f'Sensor {raw_num}', color=color)[0] 
                           for raw_num, color in zip(self.raw_class_list, self.raw_colors)]
         self.ax1.set_xlim(0, self.window_size)
         self.ax1.set_ylim(-110, 110)
-        self.ax1.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax1.legend(loc='lower left', bbox_to_anchor=(1, 0.4), fontsize=20)
 
         # 畫出預測數據的線條
         self.lines_predict = [self.ax2.plot([], [], lw=2, label=f'Gesture {class_num}', color=color)[0]
                               for class_num, color in zip(self.gesture_class_list, self.gesture_colors)]
         self.ax2.set_xlim(0, self.window_size)
         self.ax2.set_ylim(-0.05, 1.05)
-        self.ax2.legend(bbox_to_anchor=(0.8, 0.8, 0.3, 0.2), loc='upper right')
+        self.ax2.legend(loc='lower left', bbox_to_anchor=(1, 0.5), fontsize=20)
 
-        self.predict_class = self.ax2.text(.5, .5, '', fontsize=15)
+        self.predict_class = self.ax2.text(.5, .5, '', fontsize=20)
 
         # 初始空的視窗
         x = np.arange(0, self.window_size)
@@ -75,6 +81,9 @@ class Ani_Simulation():
 
         for line in self.lines_predict:
             line.set_data(x, y)
+
+        # 調整子圖布局
+        plt.tight_layout(rect=[0, 0, 1, 1])
         
     def generate_data(self):
 
@@ -117,7 +126,7 @@ class Ani_Simulation():
             back_ground_class = 3
             
             if not self.is_in_Gesture:
-                if max_score > 0.6:
+                if max_score > 0.7:
                     self.last_scores.append(argmax_score)
                     if self.last_scores[0] == self.last_scores[1] == self.last_scores[2] != back_ground_class:
                         self.is_in_Gesture = True
@@ -139,20 +148,23 @@ class Ani_Simulation():
     def start_animation(self):
         # 建立動畫，設定等待100個sample的時間
         animation = FuncAnimation(self.fig, self.animate, frames=(len(self.raw_data) + self.window_size), interval=50, repeat=False)
-
-        # 儲存動畫
-        output_dir = 'output/animations/simulation'
-        os.makedirs(output_dir, exist_ok=True)
-        raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
-        animation.save(os.path.join(output_dir, f'animation_simulation_{raw_data_filename}.gif'), writer='pillow', fps=20)
         
-        # 因為儲存時就會先計算一次，所以在顯示之前先計算
-        print(self.editdistance())
+        print(self.raw_data_path)
+        raw_data_filename = self.raw_data_path.split('/')[-1].split('.')[0]
+        file_index = raw_data_filename.split('_')[0]
+        self.input_string = raw_data_filename.split('_')[1]        
 
         # 顯示動畫
         plt.rcParams['animation.html'] = 'jshtml'
         plt.show()
 
+        ratio = round(self.editdistance(), 3)
+        print(f"{file_index},{self.input_string},{self.predict_string},{ratio}")
+
+        # 儲存動畫
+        output_dir = 'output/animations/simulation'
+        os.makedirs(output_dir, exist_ok=True)
+        animation.save(os.path.join(output_dir, f'animation_simulation_{raw_data_filename}.gif'), writer='pillow', fps=20)
+
     def editdistance(self):
-        print(self.input_string, self.predict_string)
         return Levenshtein.ratio(self.input_string, self.predict_string)
