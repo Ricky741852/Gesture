@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Rectangle
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -14,12 +15,15 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-from matplotlib.patches import Rectangle
+from src.data import GestureDataHandler
 
 class Image_SlidingWindow():
-    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.window_size = windows_size
-        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
+    def __init__(self, index, datasets_dir, window_size=50):
+        # 取得測試資料
+        data_handler = GestureDataHandler(datasets_dir, window_size=window_size)
+
+        self.window_size = window_size
+        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = data_handler.generate_test_data(index)
 
         self.component_len = self.window_size - self.gesture_label[0]
         
@@ -91,9 +95,10 @@ class Image_SlidingWindow():
     def generate_static_plot(self):
         
         # 這 3個 frame 分別對應到 test data 中，手勢1[第10筆] raw data，其 ground truth 在 0.7分、1.0分、0.3分的位置
+        frame = 0
         # frame = 18
         # frame = 25
-        frame = 38
+        # frame = 38
 
         # 處理原始數據
         raw_data_T = self.np_data.T
@@ -115,3 +120,8 @@ class Image_SlidingWindow():
 
         plt.savefig(os.path.join(output_dir, f'image_slidingwindow_{raw_data_filename}_window_{self.window_size + frame}.png'))
         plt.show()
+
+def image_slidingwindow(index, datasets_dir, window_size=50):
+    img = Image_SlidingWindow(index, datasets_dir, window_size=window_size)
+    if img.generate_data():
+        img.generate_static_plot()

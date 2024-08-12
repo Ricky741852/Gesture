@@ -1,11 +1,16 @@
 import time
+import os
+import torch
 from collections import Counter
 from tensorflow.keras.models import load_model
 from sklearn.metrics import confusion_matrix, classification_report
 import tensorflow as tf
+import matplotlib.pyplot as plt
+import numpy as np
 
-from src.models.architecture import GestureModel
-from src.data.preprocess import *
+from src.data import data_preprocess, test_preprocess
+from src.models import GestureModel
+from src.utils import Color, check_directories
 
 # if shows "find font: Font family [u'Times New Roman'] not found"
 # rm ~/.cache/matplotlib -rf
@@ -17,14 +22,14 @@ class GestureTensorflow:
         self,
         model_path,
         save_path,
-        windows_size,
+        window_size,
         class_num,
         epoch_num,
     ):
         self.model_path = model_path
         self.curve_path = "output/curves"
         self.save_path = save_path
-        self.windows_size = windows_size
+        self.window_size = window_size
         self.class_num = class_num
         self.epoch_num = epoch_num
 
@@ -36,11 +41,11 @@ class GestureTensorflow:
         data_preprocess function is defined in pre-process.py"""
 
         self.model = GestureModel(
-            5, class_num=self.class_num, windows_size=self.windows_size
+            5, class_num=self.class_num, window_size=self.window_size
         ).build_model()
 
         if not os.path.isfile(os.path.join(self.save_path, f'format_train_data.pt')):
-            data_preprocess(self.windows_size)
+            data_preprocess(self.window_size)
 
     def load_data_from_file(self, tag):
         data = torch.load(os.path.join(self.save_path, f'format_{tag}_data.pt'))
@@ -140,10 +145,6 @@ class GestureTensorflow:
         model_path = os.path.join(os.path.dirname(__file__), '..', '..', 'output', 'models', f"{model_evaluation}.h5")
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Model file does not exist at: {model_path}")
-        
-        # model_evaluation = os.path.normpath(
-        #     os.path.join(self.model_path, model_evaluation)
-        # )
         tag = 'without'
 
         self.model = load_model(model_path)
@@ -153,7 +154,7 @@ class GestureTensorflow:
         correct = 0
 
         if test_all:
-            file_start, file_end = 0, 200
+            file_start, file_end = 0, 400
         else:
             file_start, file_end = index, index + 1
 
@@ -161,7 +162,7 @@ class GestureTensorflow:
             """Each piece of txt test data belongs to an individual index"""
 
             # Load testing data
-            test_data = test_preprocess(windows_size=self.windows_size, index=idx)
+            test_data = test_preprocess(window_size=self.window_size, index=idx)
             data, answer = test_data['x'], test_data['gesture_class']
 
             # 因為模型的輸入是三維的(None, 50, 5)，所以需要對輸入的數據進行reshape
@@ -183,10 +184,10 @@ class GestureTensorflow:
 
         if test_all:
             # Calculate average data length of 72 test gesture files
-            print(f'Windows size: {self.windows_size} (Sampling rate: 50/s)')
+            print(f'Window size: {self.window_size} (Sampling rate: 50/s)')
 
             # Calculate accuracy of 72 test gesture files
-            accuracy = correct / 200
+            accuracy = correct / 400
             print(
                 Color.MSG
                 + f'Accuracy of test data ({tag} post-processing): {accuracy}'
@@ -200,6 +201,7 @@ class GestureTensorflow:
                 self.plot_confusion_matrix(answer_label_list, output_label_list)
 
     def predict_scattered_test_data(self, model_evaluation, do_eval=True, do_confusion_matrix=False):
+        """Not used"""
         """Caution. This function is only for debugging used, format_test_data.pt is a test set with scattered data.
         The test data in format_test_data.pt is scattered into pieces of (several, 100, 3) data.
         If you want to predict a complete gesture file, please execute test_model, but not this function.
@@ -324,6 +326,7 @@ class GestureTensorflow:
         plt.show()
 
     def count_test_data_gesture(self, label_to_match, tag):
+        """Not used"""
         """Count how many of each gesture there are in list"""
         label_counter = {str(i): 0 for i in range(0, self.class_num + 1)}
         for each_label in label_to_match:
@@ -332,6 +335,7 @@ class GestureTensorflow:
         print(f'Gesture {tag} Count: {label_counter}')
 
     def get_model_layer_weights(self, model_evaluation):
+        """Not used"""
         """View the weights of each conv layers in the float32 model, debug used"""
 
         # Load model
@@ -357,6 +361,3 @@ class GestureTensorflow:
                     BN = np.array(layer.get_weights())
                     print(Color.INFO + f'bn.shape: {BN.shape}' + Color.RESET)
                     print(f'bn: {BN}')    
-
-if __name__ == "__main__":
-    pass

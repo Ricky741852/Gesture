@@ -14,12 +14,19 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-from ..models.gesture_detector import GestureDetector
+from src.data import GestureDataHandler
+from src.models import GestureDetector
 
 class Image_Sample():
-    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.window_size = windows_size
-        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
+    def __init__(self, index, model_name, datasets_dir, window_size=50):
+        # 初始化手勢辨識模型
+        self.Gesture_model = GestureDetector(model_name, window_size=window_size)
+
+        # 取得測試資料
+        data_handler = GestureDataHandler(datasets_dir, window_size=window_size)
+
+        self.window_size = window_size
+        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = data_handler.generate_test_data(index)
 
         # Raw data plottings
         self.raw_class_list = ['1', '2', '3', '4', '5']
@@ -34,9 +41,6 @@ class Image_Sample():
 
         # 取得每個分類的最高分數
         self.predict_data = [list() for _ in range(len(self.gesture_class_list))]
-
-        # 初始化手勢辨識模型
-        self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
         # 使用 GridSpec 來手動調整子圖布局
         self.fig = plt.figure(figsize=(15, 15))
@@ -130,3 +134,21 @@ class Image_Sample():
 
         plt.savefig(os.path.join(output_dir, f'image_sample_{raw_data_filename}.png'))
         plt.show()
+
+def image_sample(index, model_name, datasets_dir, window_size=50):
+    """
+    Plot the image of the raw data, ground truth, and predicted data based on the given index.
+
+    Parameters:
+    - index (int): The index of the file to be plotted.
+    - model_name (str): The name of the model.
+    - datasets_dir (str): The directory of the datasets.
+    - window_size (int): The window size for the data. Default is 50.
+
+    Returns:
+    None
+    """
+    img = Image_Sample(index, model_name, datasets_dir, window_size=window_size)
+
+    if img.generate_data():
+        img.generate_static_plot()

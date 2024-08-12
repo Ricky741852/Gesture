@@ -1,14 +1,14 @@
 from os import listdir
-from src.utils.gaussian_groundtruth import GroundTruth
+from src.utils import GroundTruth
 
 class GestureDataHandler():
     """
     產生測試資料
     """
-    def __init__(self, path, windows_size=50, gesture_label=[-1000,-1000,-1000,-1000,-1000]):
+    def __init__(self, path, window_size=50, gesture_label=[-1000,-1000,-1000,-1000,-1000]):
         self.path = path
         self.accomplish_path = None # file path of every data
-        self.windows_size = windows_size
+        self.window_size = window_size
         self.gesture_label = gesture_label
         self.gesture_raw_data = list()
     
@@ -122,13 +122,14 @@ class GestureDataHandler():
             self._get_file()
         raw_data = self._get_raw_data_from_file(self.accomplish_path[index][0])
         data_len = len(raw_data)
-        if data_len < self.windows_size:
-            print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
+        if data_len < self.window_size:
+            print(f"file data {self.accomplish_path[index]} total line smaller than {self.window_size}")
 
         gesture_label = self._find_gesture_label(raw_data)
         grund_truth = self._generate_ground_truth(raw_data, gesture_label)
         raw_data_path = self.accomplish_path[index][0]
         gesture_class = self.accomplish_path[index][1]
+        print(f'data path:', {raw_data_path})
 
         return raw_data, gesture_label, grund_truth, gesture_class, raw_data_path
     
@@ -151,8 +152,8 @@ class GestureDataHandler():
             self._get_file()
         raw_data = self._get_raw_data_from_file(self.accomplish_path[index][0])
         data_len = len(raw_data)
-        if data_len < self.windows_size:
-            print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
+        if data_len < self.window_size:
+            print(f"file data {self.accomplish_path[index]} total line smaller than {self.window_size}")
 
         raw_data_path = self.accomplish_path[index][0]
 

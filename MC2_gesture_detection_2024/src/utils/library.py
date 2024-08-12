@@ -1,5 +1,4 @@
 import os
-import numpy as np
 
 def checkpath(path, do_func=None, *args):
     try:

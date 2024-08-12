@@ -14,13 +14,15 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-
-from ..models.gesture_detector import GestureDetector
+from src.data import GestureDataHandler
 
 class Image_RawData():
-    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.window_size = windows_size
-        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
+    def __init__(self, index, datasets_dir, window_size=50):
+        # 取得測試資料
+        data_handler = GestureDataHandler(datasets_dir, window_size=window_size)
+
+        self.window_size = window_size
+        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = data_handler.generate_test_data(index)
 
         # Raw data plottings
         self.raw_class_list = ['1', '2', '3', '4', '5']
@@ -77,3 +79,8 @@ class Image_RawData():
 
         plt.savefig(os.path.join(output_dir, f'image_rawdata_{raw_data_filename}.png'))
         plt.show()
+
+def image_rawdata(index, datasets_dir, window_size=50):
+    img = Image_RawData(index, datasets_dir, window_size=window_size)
+    if img.generate_data():
+        img.generate_static_plot()

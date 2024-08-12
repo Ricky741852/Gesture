@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import Levenshtein
 import os
 from matplotlib.gridspec import GridSpec
+from matplotlib.animation import FuncAnimation
+from collections import deque
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -15,14 +17,19 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-from matplotlib.animation import FuncAnimation
-from collections import deque
-from src.models.gesture_detector import GestureDetector
+from src.data import GestureDataHandler
+from src.models import GestureDetector
 
 class Ani_Simulation():
-    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.window_size = windows_size
-        self.raw_data, self.raw_data_path = Gesture_Data_Model.generate_simulate_data(index)
+    def __init__(self, index, model_name, datasets_dir, window_size=50):
+        # 初始化手勢辨識模型
+        self.Gesture_model = GestureDetector(model_name, window_size=window_size)
+
+        # 取得測試資料
+        data_handler = GestureDataHandler(datasets_dir, window_size=window_size)
+
+        self.window_size = window_size
+        self.raw_data, self.raw_data_path = data_handler.generate_simulate_data(index)
 
         # Raw data plottings
         self.raw_class_list = ['1', '2', '3', '4', '5']
@@ -42,8 +49,6 @@ class Ani_Simulation():
 
         self.input_string = str()
         self.predict_string = str()
-
-        self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
         # 使用 GridSpec 來手動調整子圖布局
         self.fig = plt.figure(figsize=(15, 10))
@@ -119,7 +124,7 @@ class Ani_Simulation():
                 self.lines_predict[i].set_ydata(predict_data_T[i])
                 
             # 獲取當前的預測標籤
-            current_predict_data = self.predict_data[frame + window_size - 1][1:]
+            current_predict_data = self.predict_data[frame + window_size][1:]
             max_score = np.max(current_predict_data)
             argmax_score = np.argmax(current_predict_data)
 
@@ -168,3 +173,8 @@ class Ani_Simulation():
 
     def editdistance(self):
         return Levenshtein.ratio(self.input_string, self.predict_string)
+
+def animation_simulation(index, model_name, datasets_dir, window_size=50):
+    ani = Ani_Simulation(index, model_name, datasets_dir, window_size=window_size)
+    if ani.generate_data():
+        ani.start_animation()

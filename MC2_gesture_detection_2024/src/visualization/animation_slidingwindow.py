@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from matplotlib.gridspec import GridSpec
+from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Rectangle
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -14,13 +16,17 @@ if gpus:
     except RuntimeError as e:
         print(e)
 
-from matplotlib.animation import FuncAnimation
-from matplotlib.patches import Rectangle
+
+
+from src.data import GestureDataHandler
 
 class Ani_SlidingWindow():
-    def __init__(self, index, model_name, Gesture_Data_Model, windows_size=50):
-        self.window_size = windows_size
-        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = Gesture_Data_Model.generate_test_data(index)
+    def __init__(self, index, datasets_dir, window_size=50):
+        # 取得測試資料
+        data_handler = GestureDataHandler(datasets_dir, window_size=window_size)
+
+        self.window_size = window_size
+        self.raw_data, self.gesture_label, self.ground_truth, self.gesture_class, self.raw_data_path = data_handler.generate_test_data(index)
 
         self.component_len = self.window_size - self.gesture_label[0]
 
@@ -81,8 +87,7 @@ class Ani_SlidingWindow():
         
         self.np_data = np.array(self.raw_data)
         # 最前方補上49個0，以產生第一筆raw data的window，進而對應到 Ground Truth 的第一組分數
-        data_with_zeros_front = np.insert(self.np_data, 0, np.zeros((self.component_len, len(self.raw_class_list))), axis=0)
-        self.np_data = data_with_zeros_front
+        self.np_data = np.insert(self.np_data, 0, np.zeros((self.component_len, len(self.raw_class_list))), axis=0)
 
         # 在 Ground Truth 前方也補上49個0分，以對應到第一筆raw data的window位置
         self.ground_truth = np.insert(self.ground_truth, 0, np.zeros((self.component_len)), axis=0)
@@ -124,3 +129,20 @@ class Ani_SlidingWindow():
         # 顯示動畫
         # plt.rcParams['animation.html'] = 'jshtml'
         plt.show()
+
+def animation_slidingwindow(index, datasets_dir, window_size=50):
+    """
+    Generate an animation of the sliding window for the given index.
+
+    Parameters:
+    - index (int): The index of the file to be animated.
+    - datasets_dir (str): The directory of the datasets.
+    - window_size (int): The size of the sliding window. Default is 50.
+
+    Returns:
+    None
+    """
+    ani = Ani_SlidingWindow(index, datasets_dir, window_size=window_size)
+    if ani.generate_data():
+        ani.generate_static_plot()
+        ani.start_animation()

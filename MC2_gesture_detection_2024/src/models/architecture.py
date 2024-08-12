@@ -6,14 +6,14 @@ from tensorflow.keras.losses import mean_squared_error
 import os
 
 class GestureModel(object):
-    def __init__(self, channel, class_num, windows_size=128):
+    def __init__(self, channel, class_num, window_size=128):
         self.model = None
         self.channel = channel
-        self.windows_size = windows_size
+        self.window_size = window_size
         self.class_num = class_num
 
     def build_model(self):
-        signal_input = Input(shape=(self.windows_size, self.channel), name="signal_input")
+        signal_input = Input(shape=(self.window_size, self.channel), name="signal_input")
         out = Conv1D(32, 3, strides=1, activation=None, use_bias=False, padding='valid', name='conv1d_1')(signal_input)
         out = BatchNormalization(name='batch_normalization_1')(out)
         out = Activation('relu', name='relu_1')(out)
@@ -61,7 +61,7 @@ class GestureModel(object):
 if __name__ == "__main__":
 
     # Plot and save model structure, here we choose to use RevisedModel
-    net = GestureModel(5, class_num=4, windows_size=50)
+    net = GestureModel(5, class_num=4, window_size=50)
     model = net.build_model()
     plot_structure = os.path.join('saved_model_h5', f'model_structure_{GestureModel.__name__}.png')
     pass

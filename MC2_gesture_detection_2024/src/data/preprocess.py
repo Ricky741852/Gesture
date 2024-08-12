@@ -1,19 +1,20 @@
-from os import listdir
 import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
-import matplotlib.pyplot as plt
 import torch
+import numpy as np
+
 from alive_progress import alive_bar
-from src.utils.library import *
-from src.utils.gaussian_groundtruth import GroundTruth
+from os import listdir
+
+from src.utils import Color, GroundTruth
+
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 TRAIN_DATA_DIR = 'data/datasets/trainData'  # directory of raw training data
 TEST_DATA_DIR = 'data/datasets/testData'  # directory of raw testing data
 PROCESSSED_DATASETS_DIR = 'data/processed/datasets'  # directory of formatted data
 
 class GestureData():
-    def __init__(self, train_data_path, test_data_path, save_path, windows_size, gesture_label=None):
+    def __init__(self, train_data_path, test_data_path, save_path, window_size, gesture_label=None):
         """
         Initialize the PreProcess object.
 
@@ -21,7 +22,7 @@ class GestureData():
             train_data_path (str): The path to the training data.
             test_data_path (str): The path to the test data.
             save_path (str): The path to save the pre-processed data.
-            windows_size (int): The size of the windows for data processing.
+            window_size (int): The size of the windows for data processing.
             gesture_label (list, optional): The gesture labels. Defaults to [-1000, -1000, -1000, -1000, -1000].
         """
         if gesture_label is None:
@@ -33,7 +34,7 @@ class GestureData():
         self.accomplish_path = None
         self.data_classes = list()
         self.data_classes_total = 0
-        self.windows_size = windows_size
+        self.window_size = window_size
         self.gesture_label = gesture_label
 
         self.gesture_raw_data = list()
@@ -150,10 +151,10 @@ class GestureData():
         gesture_class = self.accomplish_path[index][1]
 
         data_len = len(raw_data)
-        if data_len < self.windows_size:
-            print(f"file data {self.accomplish_path[index]} total line smaller than {self.windows_size}")
+        if data_len < self.window_size:
+            print(f"file data {self.accomplish_path[index]} total line smaller than {self.window_size}")
 
-        middle = self.windows_size
+        middle = self.window_size
 
         if gesture_class != '0':
             # 非背景手勢才有ground_truth
@@ -165,11 +166,11 @@ class GestureData():
 
         np_raw_data = np.array(raw_data)
 
-        if middle < self.windows_size:
-            np_raw_data = np.insert(np_raw_data, 0, np.zeros((self.windows_size - middle, len(raw_data[0]))), axis=0)
-            middle = self.windows_size
+        if middle < self.window_size:
+            np_raw_data = np.insert(np_raw_data, 0, np.zeros((self.window_size - middle, len(raw_data[0]))), axis=0)
+            middle = self.window_size
 
-        destinition_window_data = np_raw_data[middle - self.windows_size:middle]
+        destinition_window_data = np_raw_data[middle - self.window_size:middle]
             
         x = destinition_window_data / 360
         ret = {
@@ -220,8 +221,8 @@ class GestureData():
                 data_len = len(raw_data) # 經過已經移除gesture_label後的資料長度
 
                 # 若資料長度小於windows_size，則跳過此筆資料
-                if data_len < self.windows_size:
-                    print(Color.WARN + f"file data {path} total line smaller than {self.windows_size}" + Color.RESET)
+                if data_len < self.window_size:
+                    print(Color.WARN + f"file data {path} total line smaller than {self.window_size}" + Color.RESET)
                     continue
 
                 # 若是背景種類，因為沒有起始點和終點，所以ground_truth直接設為1
@@ -229,18 +230,18 @@ class GestureData():
 
                 # 若非背景種類，則依照Label位置調整長度，並產生ground_truth
                 if data_classes_index != 0:
-                    if label[0] < self.windows_size:
-                        raw_data = np.insert(raw_data, 0, np.zeros((self.windows_size - label[0], len(raw_data[0])), dtype=int), axis=0)
-                        label[1] = label[1] + self.windows_size - label[0]
-                        label[0] = self.windows_size
+                    if label[0] < self.window_size:
+                        raw_data = np.insert(raw_data, 0, np.zeros((self.window_size - label[0], len(raw_data[0])), dtype=int), axis=0)
+                        label[1] = label[1] + self.window_size - label[0]
+                        label[0] = self.window_size
 
                     ground_truth = self._generate_ground_truth(raw_data, label)
                     data_len = len(raw_data) # 經過已經調整後的資料長度
                 
                 # split data by slide windows
-                for i in range(data_len - self.windows_size + 1):
-                    window_data = raw_data[i:i + self.windows_size] # i = 0: => 0~49, 1: => 1~50, 2: => 2~51, ...
-                    window_ground_truth = ground_truth[i + self.windows_size - 1]   # i = 0: => 49, 1: => 50, 2: => 51, ...
+                for i in range(data_len - self.window_size + 1):
+                    window_data = raw_data[i:i + self.window_size] # i = 0: => 0~49, 1: => 1~50, 2: => 2~51, ...
+                    window_ground_truth = ground_truth[i + self.window_size - 1]   # i = 0: => 49, 1: => 50, 2: => 51, ...
                     x.append(np.array(window_data) / 360)
                     x_label.append(raw_data_class)
                     x_path.append(path)
@@ -268,18 +269,18 @@ class GestureData():
         torch.save(data_dict, save_pt_path)
         print(Color.H_OK + f'Successfully saved {tag} data to {save_pt_path}!' + Color.RESET)
 
-def data_preprocess(windows_size):
+def data_preprocess(window_size):
     """Pre-process and save all data to format_data/ as pt file"""
-    gesture_data = GestureData(TRAIN_DATA_DIR, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, windows_size=windows_size)
+    gesture_data = GestureData(TRAIN_DATA_DIR, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, window_size=window_size)
 
     # Generate training data, testing data
     gesture_data.generate_data(tag='train')
     gesture_data.generate_data(tag='test')
 
-def test_preprocess(windows_size, index):
+def test_preprocess(window_size, index):
     """For getting full test gesture data, each piece of data is made from a complete txt file"""
 
     # Get full test data
-    gesture_data = GestureData(None, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, windows_size=windows_size)
+    gesture_data = GestureData(None, TEST_DATA_DIR, PROCESSSED_DATASETS_DIR, window_size=window_size)
     test_data = gesture_data.generate_test_data(index=index)
     return test_data

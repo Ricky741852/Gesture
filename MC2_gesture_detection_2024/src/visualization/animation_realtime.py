@@ -13,11 +13,16 @@ if gpus:
 
 from matplotlib.animation import FuncAnimation
 from collections import deque
-from src.models.gesture_detector import GestureDetector
+
+from src.utils import serialUSB
+from src.models import GestureDetector
 
 class Ani_Realtime():
-    def __init__(self, model_name, SerialUSB, windows_size=50):
-        self.window_size = windows_size
+    def __init__(self, model_name, SerialUSB, window_size=50):
+        # 初始化手勢辨識模型
+        self.Gesture_model = GestureDetector(model_name, window_size=window_size)
+
+        self.window_size = window_size
         self.SerialUSB = SerialUSB
 
         # Raw data plottings
@@ -27,9 +32,6 @@ class Ani_Realtime():
         # Prediction data plottings
         self.gesture_class_list = ['0', '1', '2', '3']
         self.gesture_colors = ["purple", "orange", "green", "red"]
-
-        # 載入預測功能模組
-        self.Gesture_model = GestureDetector(model_name, window_size=windows_size)
 
         # 使用 GridSpec 來手動調整子圖布局
         self.fig = plt.figure(figsize=(15, 10))
@@ -106,3 +108,11 @@ class Ani_Realtime():
 
         plt.show()
         print("end_animation")
+
+def animation_realtime(model_name, window_size=50):
+    S = serialUSB()
+    S.readSerialStart()
+    
+    ani = Ani_Realtime(model_name, S, window_size)
+    ani.start_animation()
+    S.close()
