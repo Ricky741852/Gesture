@@ -1,14 +1,15 @@
 import argparse
 
-from src.models.train import GestureTensorflow
-from src.utils.library import *
+from src.models import GestureTensorflow
+from src.utils import Color, record
 from src.visualization import Visualization
-from src.utils.receive_data import record
+from src.tests import TestModels
 
 MODEL_DIR = 'output/models'  # Directory to save the trained model
 DATASETS_DIR = 'data/datasets/testData'  # Directory to save raw data
 PROCESSSED_DATASETS_DIR = 'data/processed/datasets'  # Directory to save formatted data 將訓練資料轉換為.pt檔
-EVAL_MODEL = 'model_20240717_170440'
+EVAL_MODEL = 'model_20240730_000708_bg750'
+CLASS_NUM = 4
 WINDOW_SIZE = 50
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Gesture Recognition on Gemmini')
@@ -53,17 +54,16 @@ if __name__ == '__main__':
         '-a_type',
         '--animation_type',
         type=str,
-        default='realtime',
-        help='The type of animation to run. Default is realtime. Choose from: realtime, sample, simulation.',
+        default='sample',
+        help='The type of animation to run. Default is sample. Choose from: realtime, sample, simulation, slidingwindow.',
     )
     parser.add_argument(
         '-i_type',
         '--image_type',
         type=str,
         default='sample',
-        help='The type of image to run. Default is sample. Choose from: sample, rawdata, groundtruth.',
+        help='The type of image to run. Default is sample. Choose from: sample, rawdata, groundtruth, slidingwindow.',
     )
-
 
     args = parser.parse_args()
 
@@ -87,10 +87,12 @@ if __name__ == '__main__':
     run = GestureTensorflow(
         model_path=MODEL_DIR,
         save_path=PROCESSSED_DATASETS_DIR,
-        class_num=4,
-        windows_size=WINDOW_SIZE,
+        class_num=CLASS_NUM,
+        window_size=WINDOW_SIZE,
         epoch_num=epoch_num,
     )
+    
+    visualization = Visualization(eval_model, DATASETS_DIR, WINDOW_SIZE)
     
 
     if mode == 'train':
@@ -98,24 +100,21 @@ if __name__ == '__main__':
         run.train_model()
 
     elif mode == 'test':
-        run.test_model(
-            model_evaluation=eval_model,
-            index=index,
-            test_all=test_all,
-            plot_cm=plot_cm
-        )
+        test = TestModels(eval_model, DATASETS_DIR, CLASS_NUM, WINDOW_SIZE, index=0, all_data_count=400)
+        if test_all:
+            test.test_all()
+            if plot_cm:
+                test.plot_confusion_matrix()
 
     elif mode == 'get_layer':
         run.get_model_layer_weights(model_evaluation=eval_model)
 
     elif mode == 'animation':
         print(Color.MSG + f'Animating {animation_type}...' + Color.RESET)
-        visualization = Visualization(EVAL_MODEL, DATASETS_DIR, WINDOW_SIZE)
         visualization.animation(animation_type)
     
     elif mode == 'image':
         print(Color.MSG + f'Visualizing {image_type}...' + Color.RESET)
-        visualization = Visualization(EVAL_MODEL, DATASETS_DIR, WINDOW_SIZE)
         visualization.image(image_type)
 
     elif mode == 'record':

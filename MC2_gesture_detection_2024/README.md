@@ -48,7 +48,11 @@ python main.py --mode animation --animation_type=realtime
 python main.py --mode image --image_type=sample
 ```
 
-Note: For --animation_type, you can also choose sample or simulation. For --image_type, you can also choose rawdata or groundtruth.
+- Note:
+
+  - For --animation_type, you can also choose sample, simulation or slidingwindow.
+
+  - For --image_type, you can also choose rawdata, groundtruth or slidingwindow.
 
 ### Receiving Data
 
@@ -86,10 +90,10 @@ python src\utils\spotting_GUI\Spotting_GUI.py
                           Default is 50.
   -a_type, --animation_type
                           Type of animation for visualization. 
-                          Default is realtime. 
-                          Choose from: realtime, sample, simulation.
+                          Default is sample. 
+                          Choose from: realtime, sample, simulation, slidingwindow.
   -i_type, --image_type   Type of image for visualization. 
                           Default is sample. 
-                          Choose from: sample, rawdata, groundtruth.
+                          Choose from: sample, rawdata, groundtruth, slidingwindow.
 
 ```
