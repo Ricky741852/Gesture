@@ -12,7 +12,7 @@ class GestureDetector():
 
         Parameters:
         - model_name (str): The name of the model to be loaded.
-        - windows_size (int): The size of the sliding windows.
+        - window_size (int): The size of the sliding windows.
 
         Returns:
         None
@@ -48,7 +48,7 @@ class GestureDetector():
 
         Example:
         Sampling rate = 50Hz, windwows_stride means the step size of the window sliding.
-        For example: windows_size = 100, windows_stride = 50, it means that the window slides per second.
+        For example: window_size = 100, window_stride = 50, it means that the window slides per second.
         """
         stride = 1
 
